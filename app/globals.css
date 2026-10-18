@@ -1,49 +1,1289 @@
+/* Estructura inspirada en ClockWork (bordes finos, píldoras) con nuestra paleta pastel */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-html {
-  height: 100%;
-}
-
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --alto-pestanas: 74px; /* 56 de botones + 8 arriba + 10 abajo */
+  --lila: #cdb4db;
+  --rosa-claro: #ffc8dd;
+  --rosa: #ffafcc;
+  --azul-claro: #bde0fe;
+  --azul: #a2d2ff;
+  --fondo: #fff;
+  --gris-claro: #f4f4f5;
+  --tarjeta: #fff;
+  --tinta: #3d3346;
+  --gris: #7a6f85;
+  --linea: #3d3346;
+  --mono: var(--font-mono), ui-monospace, monospace;
 }
 
 * {
   box-sizing: border-box;
-  padding: 0;
+}
+
+/* Sin esto, un display: flex/grid de una clase anularía el atributo hidden */
+[hidden] {
+  display: none !important;
+}
+
+body {
   margin: 0;
+  background: var(--fondo);
+  color: var(--tinta);
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 56px 16px 48px;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+/* Login: cabecera y formulario juntos, cerca del borde de abajo */
+main.login {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-top: 24px;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom));
+}
+
+main.login .cabecera {
+  margin-top: auto;
+}
+
+/* Recuadro transparente (se ve el paisaje a través); los campos, opacos para escribir cómodo */
+main.login form {
+  background: rgb(255 255 255 / 0.18);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  border-color: rgb(255 255 255 / 0.7);
+}
+
+main.login input {
+  background: rgb(255 255 255 / 0.95);
+  border-color: transparent;
+}
+
+/* Cabecera */
+.cabecera {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.badge {
+  padding: 4px 14px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--tarjeta);
+  font-size: 0.8rem;
+}
+
+h1 {
+  margin: 14px 0 6px;
+  font-family: var(--mono);
+  font-size: 3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.sub {
+  margin: 0;
+  color: var(--gris);
+}
+
+.destello {
+  position: absolute;
+  pointer-events: none;
+}
+
+.d1 {
+  width: 34px;
+  top: 34px;
+  left: 12%;
+  fill: var(--rosa);
+}
+
+.d2 {
+  width: 22px;
+  top: 8px;
+  right: 14%;
+  fill: var(--azul);
+}
+
+/* Formularios */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--linea);
+  border-radius: 20px;
+  background: var(--tarjeta);
+  box-shadow: 6px 6px 0 var(--rosa);
+}
+
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  padding: 13px 16px;
+  border: 1px solid #d6d6d6;
+  border-radius: 12px;
+  background: var(--gris-claro);
+  color: var(--tinta);
+  font: inherit;
+  font-size: 1rem;
+}
+
+input:focus-visible {
+  outline: 2px solid var(--lila);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.anadir {
+  padding: 13px;
+  border: none;
+  border-radius: 999px;
+  background: var(--tinta);
+  color: #fff;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.anadir:hover {
+  background: #5a4d66;
+}
+
+/* Filtros */
+.filtros {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 28px 0 14px;
+}
+
+.filtros button,
+.opciones button,
+.pildora {
+  padding: 8px 16px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--tarjeta);
+  color: var(--tinta);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.filtros button[aria-pressed="true"],
+.opciones button[aria-pressed="true"] {
+  background: var(--tinta);
+  color: #fff;
+}
+
+/* Lista */
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Cada plan: un fondo rosa con "Borrar" y, encima, la tarjeta que se desliza a la derecha */
+.deslizable {
+  position: relative;
+}
+
+/* Lo que asoma debajo al deslizar: "Borrar" a la izquierda (deslizar →), "Responder" a la derecha (←) */
+.fondo-accion {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  border-radius: 16px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--tinta);
+}
+
+.fondo-borrar {
+  justify-content: flex-start;
+  background: var(--rosa);
+}
+
+.fondo-responder {
+  justify-content: flex-end;
+  background: var(--azul);
+}
+
+/* Tarjeta de plan: checkbox | descripción | mapa, todo alineado arriba */
+.tarjeta {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 14px 14px 16px;
+  border: 1px solid var(--linea);
+  border-radius: 16px;
+  background: var(--tarjeta);
+  touch-action: pan-y; /* el scroll vertical es del navegador; lo horizontal, nuestro */
+  transition: transform 0.2s ease;
+}
+
+.arrastrando {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.tarjeta:focus-visible {
+  outline: 2px solid var(--lila);
+  outline-offset: 2px;
+}
+
+/* Checkbox animado, adaptado de uiverse.io/Timbar09/popular-bulldog-40 (MIT):
+   el círculo se encoge y aparece un tic de dos trazos */
+.planes input[type="checkbox"] {
+  --lado: 1.5rem;
+  --trazo: 0.2rem;
+  appearance: none;
+  position: relative;
+  width: var(--lado);
+  height: var(--lado);
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  rotate: 45deg;
+}
+
+.planes input[type="checkbox"]:checked {
+  animation: encoger 0.5s ease forwards;
+}
+
+.planes input[type="checkbox"]:not(:checked) {
+  animation: crecer 0.5s 0.6s ease forwards;
+}
+
+@keyframes encoger {
+  0% {
+    scale: 1;
+    background-color: var(--gris-claro);
+    border-color: #c8c8cc;
   }
+  50% {
+    scale: 0;
+    background-color: var(--gris-claro);
+    border-color: #c8c8cc;
+  }
+  51% {
+    scale: 0;
+    background-color: transparent;
+    border-color: transparent;
+  }
+  100% {
+    scale: 1;
+    background-color: transparent;
+    border-color: transparent;
+  }
+}
+
+@keyframes crecer {
+  from {
+    scale: 0;
+    background-color: transparent;
+    border-color: transparent;
+  }
+  to {
+    scale: 1;
+    background-color: var(--gris-claro);
+    border-color: #c8c8cc;
+  }
+}
+
+.planes input[type="checkbox"]::before,
+.planes input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  border-radius: 10rem;
+  background-color: transparent;
+}
+
+/* Trazo corto del tic */
+.planes input[type="checkbox"]::before {
+  top: calc(var(--lado) * 0.65);
+  left: 0;
+  width: var(--trazo);
+  height: var(--trazo);
+  transition: background-color 0.3s 0.5s ease-in-out, width 0.5s ease-in-out;
+}
+
+.planes input[type="checkbox"]:checked::before {
+  width: calc(var(--lado) / 2);
+  background-color: var(--rosa);
+  transition: background-color 0.3s 0.3s ease-in-out, width 0.4s 0.6s ease-in-out;
+}
+
+/* Trazo largo del tic */
+.planes input[type="checkbox"]::after {
+  top: 0;
+  left: calc(var(--lado) * 0.5 - var(--trazo));
+  width: var(--trazo);
+  height: var(--trazo);
+  transition: background-color 0.3s 0.5s ease-in-out, height 0.5s ease-in-out;
+}
+
+.planes input[type="checkbox"]:checked::after {
+  height: calc(var(--lado) * 0.75);
+  background-color: var(--tinta);
+  transition: background-color 0.3s 0.3s ease-in-out, height 0.4s 0.9s ease-in-out;
+}
+
+.planes input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--lila);
+  outline-offset: 3px;
+}
+
+li .texto {
+  overflow-wrap: anywhere;
+}
+
+.texto-plan {
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Tachado animado: degradado de fondo en vez de línea, para que funcione en textos de varias líneas */
+.texto-plan span {
+  background: linear-gradient(currentColor, currentColor) 0 58% / 0 1.5px no-repeat;
+  transition: background-size 0.6s ease, color 0.3s;
+}
+
+.tarjeta.hecho .texto-plan span {
+  background-size: 100% 1.5px;
+  color: var(--gris);
+  transition: background-size 0.9s 0.9s ease, color 0.4s 1.4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planes input[type="checkbox"],
+  .planes input[type="checkbox"]::before,
+  .planes input[type="checkbox"]::after,
+  .texto-plan span {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .planes input[type="checkbox"]:not(:checked) {
+    background-color: var(--gris-claro);
+    border-color: #c8c8cc;
+  }
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 6px;
+}
+
+.autor {
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.fecha {
+  font-size: 0.78rem;
+  color: var(--gris);
+}
+
+/* Pestañita que asoma por debajo de la tarjeta: tapa el borde inferior para parecer una prolongación */
+.deslizable:has(.deseando) {
+  margin-bottom: 22px;
+}
+
+.deseando {
+  position: absolute;
+  top: 100%;
+  right: 18px;
+  max-width: calc(100% - 36px);
+  padding: 3px 12px 4px;
+  border: 1px solid var(--linea);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  background: var(--rosa-claro);
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--tinta);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lugar-texto {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.8rem;
+  color: var(--gris);
+}
+
+.lugar-texto svg {
+  width: 13px;
+  flex-shrink: 0;
+  fill: var(--rosa);
+  stroke: var(--tinta);
+  stroke-width: 1;
+}
+
+.tarjeta.yo .autor { background: var(--azul-claro); }
+.tarjeta.ella .autor { background: var(--rosa-claro); }
+
+
+.vacio {
+  text-align: center;
+  color: var(--gris);
+  padding: 24px;
+}
+
+/* Botón de menú */
+.abrir-menu {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--tarjeta);
+  cursor: pointer;
+}
+
+.abrir-menu svg {
+  width: 20px;
+  stroke: var(--tinta);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* Barra lateral (<dialog> nativo: Esc y foco gratis) */
+.lateral {
+  margin: 0;
+  width: min(320px, 85vw);
+  height: 100dvh;
+  max-height: none;
+  padding: 20px;
+  border: none;
+  border-right: 1px solid var(--linea);
+  background: var(--tarjeta);
+  color: var(--tinta);
+  overflow: hidden; /* la barra no se desplaza entera: solo la lista de novedades */
+}
+
+.lateral[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  animation: entrar 0.2s ease-out;
+}
+
+.lateral::backdrop {
+  background: rgb(61 51 70 / 0.35);
+  animation: aparecer 0.2s ease-out;
+}
+
+/* Al cerrar (clase que pone Lateral.tsx): sale hacia la izquierda y el fondo se desvanece */
+.lateral.cerrando {
+  animation: salir 0.2s ease-in forwards;
+}
+
+.lateral.cerrando::backdrop {
+  animation: desvanecer 0.2s ease-in forwards;
+}
+
+@keyframes entrar {
+  from { transform: translateX(-100%); }
+}
+
+@keyframes salir {
+  to { transform: translateX(-100%); }
+}
+
+@keyframes aparecer {
+  from { opacity: 0; }
+}
+
+@keyframes desvanecer {
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lateral[open],
+  .lateral::backdrop { animation: none; }
+}
+
+.lateral-cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lateral-titulo {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 1.4rem;
+}
+
+.cerrar {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: none;
+  color: var(--tinta);
+  cursor: pointer;
+}
+
+.lateral h2 {
+  margin: 0 0 10px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--gris);
+}
+
+.cuenta {
+  margin: 0 0 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Novedades: ocupa el hueco libre y es lo único que hace scroll */
+.seccion-novedades {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.lateral .novedades {
+  flex: 1;
+  min-height: 0;
+  gap: 6px;
+  padding: 0 0 40px 18px; /* hueco final para que el último punto pueda salir del degradado */
+  list-style: disc;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* El final se desvanece hacia transparente */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 56px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 56px), transparent);
+  /* Sin barra de scroll visible */
+  scrollbar-width: none;
+}
+
+.lateral .novedades::-webkit-scrollbar {
+  display: none;
+}
+
+.lateral .novedades li {
+  display: list-item;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+}
+
+.lateral .novedades li::marker {
+  color: var(--rosa);
+}
+
+.version {
+  margin: auto 0 0;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--gris);
+}
+
+/* Fondo de vídeo del login */
+.fondo {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #3d3346 url("/videos/dolomitas.jpg") center / cover;
+}
+
+/* Dos capas que se funden (0,8 s, igual que FUNDIDO en page.tsx) */
+.fondo video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+.fondo video.activo {
+  opacity: 1;
+}
+
+/* Velo para que el texto se lea sobre cualquier paisaje */
+.fondo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgb(61 51 70 / 0.35), rgb(61 51 70 / 0.1) 35%, rgb(61 51 70 / 0.7));
+}
+
+main.login h1,
+main.login .sub,
+main.login .vacio {
+  color: #fff;
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.35);
+}
+
+/* Lugar: botón para añadirlo, buscador y lugar elegido */
+.poner-lugar,
+.lugar-elegido {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--tinta);
+}
+
+.poner-lugar {
+  align-self: flex-start;
+  padding: 4px 2px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.poner-lugar svg,
+.lugar-elegido svg {
+  width: 18px;
+  flex-shrink: 0;
+  fill: var(--rosa);
+  stroke: var(--tinta);
+  stroke-width: 1;
+}
+
+.lugar-elegido {
+  padding: 8px 8px 8px 12px;
+  border-radius: 12px;
+  background: var(--azul-claro);
+}
+
+.lugar-elegido span {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.lugar-elegido button {
+  border: none;
+  background: none;
+  font-size: 1rem;
+  color: var(--tinta);
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.buscador {
+  display: flex;
+  gap: 8px;
+}
+
+.buscador input {
+  flex: 1;
+  min-width: 0;
+}
+
+.buscador .pildora {
+  flex-shrink: 0;
+}
+
+.buscador .pildora:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+form .resultados {
+  gap: 6px;
+}
+
+form .resultados li {
+  padding: 0;
+  border: 1px solid #d6d6d6;
+  border-radius: 12px;
+}
+
+form .resultados button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  font: inherit;
+  color: var(--tinta);
+  text-align: left;
+  cursor: pointer;
+}
+
+form .resultados button:hover {
+  background: var(--gris-claro);
+}
+
+form .resultados small {
+  color: var(--gris);
+  font-size: 0.78rem;
+}
+
+.aviso {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--gris);
+}
+
+/* Mapa pequeño del plan guardado */
+.minimapa {
+  display: block;
+}
+
+.minimapa .mapa {
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: var(--gris-claro);
+}
+
+.minimapa .mapa img {
+  position: absolute;
+  max-width: none;
+}
+
+.minimapa .pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  transform: translate(-50%, -100%);
+  fill: var(--rosa);
+  stroke: var(--tinta);
+  stroke-width: 1.2;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
+}
+
+.minimapa .osm {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding: 0 3px;
+  background: rgb(255 255 255 / 0.75);
+  font-size: 7px;
+  line-height: 1.4;
+  color: #333;
+}
+
+.minimapa:hover .mapa {
+  box-shadow: 3px 3px 0 var(--azul);
+}
+
+/* Aviso "Plan borrado · Deshacer" */
+.deshacer {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--alto-pestanas) + 14px + env(safe-area-inset-bottom));
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 10px 10px 18px;
+  border-radius: 999px;
+  background: var(--tinta);
+  color: #fff;
+  transform: translateX(-50%);
+  box-shadow: 0 6px 20px rgb(61 51 70 / 0.25);
+  white-space: nowrap;
+}
+
+.deshacer button {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--rosa);
+  color: var(--tinta);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Barra de pestañas de abajo: Planes | Chat */
+main.con-pestanas {
+  padding-bottom: calc(var(--alto-pestanas) + 32px + env(safe-area-inset-bottom));
+}
+
+.pestanas {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  height: calc(var(--alto-pestanas) + env(safe-area-inset-bottom));
+  /* 10 px extra abajo para que los botones no queden pegados al borde */
+  padding: 8px 16px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--linea);
+  background: var(--tarjeta);
+}
+
+.pestanas button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: min(180px, 50%);
+  border: none;
+  border-radius: 14px;
+  background: none;
+  color: var(--gris);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.pestanas button svg {
+  width: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pestanas button[aria-current="page"] {
+  background: var(--rosa-claro);
+  color: var(--tinta);
+  font-weight: 700;
+}
+
+.globo {
+  position: absolute;
+  top: 4px;
+  left: calc(50% + 8px);
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--tinta);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+/* Chat */
+/* La caja de escribir es fija abajo: el chat deja hueco para que no tape el último mensaje */
+.chat {
+  --alto-escribir: 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: var(--alto-escribir);
+}
+
+.chat.respondiendo {
+  --alto-escribir: 128px;
+}
+
+.chat-cabecera {
+  padding-top: 8px;
+  text-align: center;
+}
+
+.chat-cabecera h2 {
+  margin: 0 0 6px;
+  font-family: var(--mono);
+  font-size: 1.6rem;
+}
+
+.conectados {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--gris);
+}
+
+.conectado {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  color: var(--tinta);
+}
+
+.punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2fb36d;
+  box-shadow: 0 0 0 3px rgb(47 179 109 / 0.2);
+}
+
+.mensajes {
+  gap: 8px;
+}
+
+.mensajes > .deslizable {
+  max-width: 80%;
+}
+
+.mensajes > .mio {
+  align-self: flex-end;
+}
+
+.mensajes > .suyo {
+  align-self: flex-start;
+}
+
+.mensajes .fondo-accion {
+  border-radius: 18px;
+  padding: 0 12px;
+  font-size: 0.75rem;
+}
+
+.burbuja {
+  position: relative;
+  padding: 9px 13px 7px;
+  border: 1px solid var(--linea);
+  border-radius: 18px;
+  touch-action: pan-y;
+  transition: transform 0.2s ease;
+}
+
+.burbuja:focus-visible {
+  outline: 2px solid var(--lila);
+  outline-offset: 2px;
+}
+
+.burbuja.mio {
+  border-bottom-right-radius: 6px;
+  background: var(--azul-claro);
+}
+
+.burbuja.suyo {
+  border-bottom-left-radius: 6px;
+  background: var(--rosa-claro);
+}
+
+/* Mensaje citado, arriba de la respuesta */
+.cita {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 6px;
+  padding: 5px 9px;
+  border-left: 3px solid var(--tinta);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.6);
+  font-size: 0.8rem;
+}
+
+.cita span,
+.respondiendo-a span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--gris);
+  overflow-wrap: anywhere;
+}
+
+.mensajes p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mensajes small {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.7rem;
+  color: var(--gris);
+  text-align: right;
+}
+
+/* Caja para escribir: abajo del todo, pegada a las pestañas y a todo lo ancho */
+.escribir {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--alto-pestanas) + env(safe-area-inset-bottom));
+  z-index: 1;
+  gap: 8px;
+  padding: 10px max(16px, calc((100% - 480px) / 2 + 16px));
+  border: none;
+  border-top: 1px solid var(--linea);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.fila-escribir {
+  display: flex;
+  gap: 8px;
+}
+
+/* Panel "Respondiendo a…" encima de la caja */
+.respondiendo-a {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 8px 7px 11px;
+  border-left: 3px solid var(--azul);
+  border-radius: 10px;
+  background: var(--azul-claro);
+  font-size: 0.82rem;
+}
+
+.respondiendo-a > div {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.respondiendo-a button {
+  border: none;
+  background: none;
+  color: var(--tinta);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.escribir input {
+  flex: 1;
+  min-width: 0;
+}
+
+.escribir .anadir {
+  padding: 0 18px;
+}
+
+.escribir .anadir:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* En el chat, el aviso de deshacer va por encima de la caja de escribir */
+.deshacer.sobre-escribir {
+  bottom: calc(var(--alto-pestanas) + var(--alto-escribir) + 14px + env(safe-area-inset-bottom));
+}
+
+/* Fila de acciones de la tarjeta, a la izquierda: me gusta y comentarios */
+.acciones {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 0 -6px; /* -6px: el icono queda alineado con el texto */
+}
+
+.accion {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--gris);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.accion:hover {
+  background: var(--gris-claro);
+  color: var(--tinta);
+}
+
+.accion svg {
+  width: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.me-gusta.activo {
+  color: var(--tinta);
+}
+
+.me-gusta.activo svg {
+  fill: var(--rosa);
+  stroke: var(--tinta);
+  animation: latido 0.3s ease;
+}
+
+@keyframes latido {
+  50% { transform: scale(1.25); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .me-gusta.activo svg { animation: none; }
+}
+
+/* Post abierto con sus comentarios (<dialog>): hoja que sube desde abajo */
+.post {
+  width: min(480px, 100%);
+  max-width: none;
+  max-height: min(85dvh, 720px);
+  margin: auto auto 0;
+  padding: 18px 16px calc(14px + env(safe-area-inset-bottom));
+  border: 1px solid var(--linea);
+  border-bottom: none;
+  border-radius: 22px 22px 0 0;
+  background: var(--tarjeta);
+  color: var(--tinta);
+}
+
+.post[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: subir 0.22s ease-out;
+}
+
+.post::backdrop {
+  background: rgb(61 51 70 / 0.35);
+  animation: aparecer 0.22s ease-out;
+}
+
+/* Al cerrar (clase que pone cerrarConAnimacion): baja y el fondo se desvanece */
+.post.cerrando {
+  animation: bajar 0.22s ease-in forwards;
+}
+
+.post.cerrando::backdrop {
+  animation: desvanecer 0.22s ease-in forwards;
+}
+
+@keyframes subir {
+  from { transform: translateY(100%); }
+}
+
+@keyframes bajar {
+  to { transform: translateY(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .post[open],
+  .post::backdrop { animation: none; }
+}
+
+.post-cabecera {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.post-plan {
+  flex: 1;
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.post h2 {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--gris);
+}
+
+.post .vacio {
+  padding: 12px;
+}
+
+.lista-comentarios {
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.lista-comentarios li {
+  padding: 8px 12px;
+  border-radius: 14px;
+}
+
+.lista-comentarios li.mio { background: var(--azul-claro); }
+.lista-comentarios li.suyo { background: var(--rosa-claro); }
+
+.lista-comentarios small {
+  font-size: 0.72rem;
+  color: var(--gris);
+}
+
+.lista-comentarios p {
+  margin: 2px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.escribir-comentario {
+  flex-direction: row;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.escribir-comentario input {
+  flex: 1;
+  min-width: 0;
+}
+
+.escribir-comentario .anadir {
+  padding: 0 18px;
+}
+
+.escribir-comentario .anadir:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
