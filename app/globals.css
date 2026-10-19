@@ -1,49 +1,2239 @@
+/* Estructura inspirada en ClockWork (bordes finos, píldoras) con nuestra paleta pastel */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-html {
-  height: 100%;
-}
-
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --alto-pestanas: 74px; /* 56 de botones + 8 arriba + 10 abajo */
+  --lila: #cdb4db;
+  --rosa-claro: #ffc8dd;
+  --rosa: #ffafcc;
+  --azul-claro: #bde0fe;
+  --azul: #a2d2ff;
+  --fondo: #fff;
+  --gris-claro: #f4f4f5;
+  --tarjeta: #fff;
+  --tinta: #3d3346;
+  --gris: #7a6f85;
+  --linea: #3d3346;
+  --mono: var(--font-mono), ui-monospace, monospace;
 }
 
 * {
   box-sizing: border-box;
-  padding: 0;
+}
+
+/* Sin esto, un display: flex/grid de una clase anularía el atributo hidden */
+[hidden] {
+  display: none !important;
+}
+
+body {
   margin: 0;
+  background: var(--fondo);
+  color: var(--tinta);
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 56px 16px 48px;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+/* Login (y crear grupo): la página no se mueve ni rebota (en iPhone el rebote dejaba ver el blanco
+   de debajo del vídeo). Si algo no cabe (pantalla pequeña, teclado abierto), solo se desplaza el main */
+html:has(main.login),
+html:has(main.login) body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* El oscuro, solo en html: si el body tuviera fondo propio se pintaría encima del vídeo (z-index -1) */
+html:has(main.login) {
+  background: #3d3346;
+}
+
+html:has(main.login) body {
+  background: transparent;
+}
+
+/* Cabecera y formulario juntos, cerca del borde de abajo */
+main.login {
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  padding-top: 24px;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom));
+}
+
+main.login .cabecera {
+  margin-top: auto;
+}
+
+/* Recuadro transparente (se ve el paisaje a través); los campos, opacos para escribir cómodo */
+main.login form {
+  background: rgb(255 255 255 / 0.18);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  border-color: rgb(255 255 255 / 0.7);
+}
+
+main.login input {
+  background: rgb(255 255 255 / 0.95);
+  border-color: transparent;
+}
+
+/* Cabecera */
+.cabecera {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.badge {
+  padding: 4px 14px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--tarjeta);
+  font-size: 0.8rem;
+}
+
+.titulo {
+  position: relative;
+  margin: 14px 0 6px;
+}
+
+h1,
+.h1 {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.sub {
+  margin: 0;
+  color: var(--gris);
+}
+
+.destello {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Posiciones respecto al título (antes iban respecto a toda la cabecera) */
+.d1 {
+  width: 34px;
+  top: -6px;
+  left: -40px;
+  fill: var(--rosa);
+}
+
+.d2 {
+  width: 22px;
+  top: -32px;
+  right: -30px;
+  fill: var(--azul);
+}
+
+/* Formularios */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--linea);
+  border-radius: 20px;
+  background: var(--tarjeta);
+  box-shadow: 6px 6px 0 var(--rosa);
+}
+
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  padding: 13px 16px;
+  border: 1px solid #d6d6d6;
+  border-radius: 12px;
+  background: var(--gris-claro);
+  color: var(--tinta);
+  font: inherit;
+  font-size: 1rem;
+}
+
+input:focus-visible {
+  outline: 2px solid var(--lila);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.anadir {
+  padding: 13px;
+  border: none;
+  border-radius: 999px;
+  background: var(--tinta);
+  color: #fff;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.anadir:hover {
+  background: #5a4d66;
+}
+
+/* Filtros */
+.filtros {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 28px 0 14px;
+}
+
+.filtros button,
+.opciones button,
+.pildora {
+  padding: 8px 16px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--tarjeta);
+  color: var(--tinta);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.filtros button[aria-pressed="true"],
+.opciones button[aria-pressed="true"] {
+  background: var(--tinta);
+  color: #fff;
+}
+
+/* Lista */
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Cada plan: un fondo rosa con "Borrar" y, encima, la tarjeta que se desliza a la derecha */
+.deslizable {
+  position: relative;
+}
+
+/* Tarjetas apiladas (inspirado en scroll-driven-animations.style/demos/stacking-cards):
+   al bajar, cada plan se queda pegado arriba y los siguientes se apilan encima */
+.planes {
+  view-timeline-name: --planes;
+  padding-bottom: 60px;
+}
+
+.planes > .deslizable {
+  --index0: calc(var(--index) - 1);
+  position: sticky;
+  /* un poco más abajo cada una, para ver el borde de las de debajo (máximo 60px) */
+  top: calc(16px + min(var(--index0) * 10px, 60px));
+  transform-origin: 50% 0;
+}
+
+@supports (animation-timeline: view()) {
+  .planes > .deslizable {
+    /* Cada tarjeta se encoge mientras le pasan por encima las que vienen detrás.
+       "scale" y no "transform": así no pisa el translateX del gesto de deslizar */
+    animation: encoger-al-apilar linear forwards;
+    animation-timeline: --planes;
+    /* "contain": desde que la lista llega arriba hasta que su final llega abajo, que es justo
+       cuando se apilan. (La demo usa exit-crossing, pero ahí hay contenido debajo; aquí la lista
+       es lo último de la página y nunca llegaría a salir.) */
+    animation-range: contain calc(var(--index0) / var(--numcards) * 100%) contain
+      calc(var(--index) / var(--numcards) * 100%);
   }
+}
+
+@keyframes encoger-al-apilar {
+  to {
+    /* 4% menos por cada tarjeta que tiene encima, como mucho hasta el 80% */
+    scale: max(0.8, calc(1 - 0.04 * (var(--numcards) - var(--index))));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planes > .deslizable { animation: none; }
+}
+
+/* Lo que asoma debajo al deslizar: "Borrar" a la izquierda (deslizar →), "Responder" a la derecha (←) */
+.fondo-accion {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  border-radius: 16px;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--tinta);
+}
+
+.fondo-borrar {
+  justify-content: flex-start;
+  background: var(--rosa);
+}
+
+.fondo-responder {
+  justify-content: flex-end;
+  background: var(--azul);
+}
+
+/* Tarjeta de plan: checkbox | descripción | mapa, todo alineado arriba */
+.tarjeta {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 14px 14px 16px;
+  border: 1px solid var(--linea);
+  border-radius: 16px;
+  background: var(--tarjeta);
+  touch-action: pan-y; /* el scroll vertical es del navegador; lo horizontal, nuestro */
+  transition: transform 0.2s ease;
+}
+
+.arrastrando {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.tarjeta:focus-visible {
+  outline: 2px solid var(--lila);
+  outline-offset: 2px;
+}
+
+/* Checkbox animado, adaptado de uiverse.io/Timbar09/popular-bulldog-40 (MIT):
+   el círculo se encoge y aparece un tic de dos trazos */
+.planes input[type="checkbox"] {
+  --lado: 1.5rem;
+  --trazo: 0.2rem;
+  appearance: none;
+  position: relative;
+  width: var(--lado);
+  height: var(--lado);
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  rotate: 45deg;
+}
+
+.planes input[type="checkbox"]:checked {
+  animation: encoger 0.5s ease forwards;
+}
+
+.planes input[type="checkbox"]:not(:checked) {
+  animation: crecer 0.5s 0.6s ease forwards;
+}
+
+@keyframes encoger {
+  0% {
+    scale: 1;
+    background-color: var(--gris-claro);
+    border-color: #c8c8cc;
+  }
+  50% {
+    scale: 0;
+    background-color: var(--gris-claro);
+    border-color: #c8c8cc;
+  }
+  51% {
+    scale: 0;
+    background-color: transparent;
+    border-color: transparent;
+  }
+  100% {
+    scale: 1;
+    background-color: transparent;
+    border-color: transparent;
+  }
+}
+
+@keyframes crecer {
+  from {
+    scale: 0;
+    background-color: transparent;
+    border-color: transparent;
+  }
+  to {
+    scale: 1;
+    background-color: var(--gris-claro);
+    border-color: #c8c8cc;
+  }
+}
+
+.planes input[type="checkbox"]::before,
+.planes input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  border-radius: 10rem;
+  background-color: transparent;
+}
+
+/* Trazo corto del tic */
+.planes input[type="checkbox"]::before {
+  top: calc(var(--lado) * 0.65);
+  left: 0;
+  width: var(--trazo);
+  height: var(--trazo);
+  transition: background-color 0.3s 0.5s ease-in-out, width 0.5s ease-in-out;
+}
+
+.planes input[type="checkbox"]:checked::before {
+  width: calc(var(--lado) / 2);
+  background-color: var(--rosa);
+  transition: background-color 0.3s 0.3s ease-in-out, width 0.4s 0.6s ease-in-out;
+}
+
+/* Trazo largo del tic */
+.planes input[type="checkbox"]::after {
+  top: 0;
+  left: calc(var(--lado) * 0.5 - var(--trazo));
+  width: var(--trazo);
+  height: var(--trazo);
+  transition: background-color 0.3s 0.5s ease-in-out, height 0.5s ease-in-out;
+}
+
+.planes input[type="checkbox"]:checked::after {
+  height: calc(var(--lado) * 0.75);
+  background-color: var(--tinta);
+  transition: background-color 0.3s 0.3s ease-in-out, height 0.4s 0.9s ease-in-out;
+}
+
+.planes input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--lila);
+  outline-offset: 3px;
+}
+
+li .texto {
+  overflow-wrap: anywhere;
+}
+
+.texto-plan {
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Tachado animado: degradado de fondo en vez de línea, para que funcione en textos de varias líneas */
+.texto-plan span {
+  background: linear-gradient(currentColor, currentColor) 0 58% / 0 1.5px no-repeat;
+  transition: background-size 0.6s ease, color 0.3s;
+}
+
+.tarjeta.hecho .texto-plan span {
+  background-size: 100% 1.5px;
+  color: var(--gris);
+  transition: background-size 0.9s 0.9s ease, color 0.4s 1.4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planes input[type="checkbox"],
+  .planes input[type="checkbox"]::before,
+  .planes input[type="checkbox"]::after,
+  .texto-plan span {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .planes input[type="checkbox"]:not(:checked) {
+    background-color: var(--gris-claro);
+    border-color: #c8c8cc;
+  }
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin-top: 6px;
+}
+
+.autor {
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}
+
+.fecha {
+  font-size: 0.78rem;
+  color: var(--gris);
+}
+
+/* Pestañita que asoma por debajo de la tarjeta: tapa el borde inferior para parecer una prolongación */
+.deslizable:has(.deseando) {
+  margin-bottom: 22px;
+}
+
+.deseando {
+  position: absolute;
+  top: 100%;
+  right: 18px;
+  max-width: calc(100% - 36px);
+  padding: 3px 12px 4px;
+  border: 1px solid var(--linea);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  background: var(--rosa-claro);
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: var(--tinta);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lugar-texto {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.8rem;
+  color: var(--gris);
+}
+
+.lugar-texto svg {
+  width: 13px;
+  flex-shrink: 0;
+  fill: var(--rosa);
+  stroke: var(--tinta);
+  stroke-width: 1;
+}
+
+.tarjeta.yo .autor { background: var(--azul-claro); }
+.tarjeta.ella .autor { background: var(--rosa-claro); }
+
+
+.vacio {
+  text-align: center;
+  color: var(--gris);
+  padding: 24px;
+}
+
+/* Botón de menú */
+.abrir-menu {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 3; /* por encima de la cabecera pegada */
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--tarjeta);
+  cursor: pointer;
+}
+
+.abrir-menu svg {
+  width: 20px;
+  stroke: var(--tinta);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* Barra lateral (<dialog> nativo: Esc y foco gratis) */
+.lateral {
+  margin: 0;
+  width: min(320px, 85vw);
+  height: 100dvh;
+  max-height: none;
+  padding: 20px;
+  border: none;
+  border-right: 1px solid var(--linea);
+  background: var(--tarjeta);
+  color: var(--tinta);
+  padding-top: 0; /* lo pone la cabecera, que se queda fija arriba */
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+}
+
+.lateral[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  animation: entrar 0.2s ease-out;
+}
+
+.lateral::backdrop {
+  background: rgb(61 51 70 / 0.35);
+  animation: aparecer 0.2s ease-out;
+}
+
+/* Al cerrar (clase que pone Lateral.tsx): sale hacia la izquierda y el fondo se desvanece */
+.lateral.cerrando {
+  animation: salir 0.2s ease-in forwards;
+}
+
+.lateral.cerrando::backdrop {
+  animation: desvanecer 0.2s ease-in forwards;
+}
+
+@keyframes entrar {
+  from { transform: translateX(-100%); }
+}
+
+@keyframes salir {
+  to { transform: translateX(-100%); }
+}
+
+@keyframes aparecer {
+  from { opacity: 0; }
+}
+
+@keyframes desvanecer {
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lateral[open],
+  .lateral::backdrop { animation: none; }
+}
+
+/* Fija arriba al hacer scroll en la barra lateral */
+.lateral-cabecera {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 -20px -12px;
+  padding: 20px 20px 12px;
+  background: var(--tarjeta);
+  border-bottom: 1px solid transparent;
+}
+
+.lateral-titulo {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 1.4rem;
+}
+
+.cerrar {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: none;
+  color: var(--tinta);
+  cursor: pointer;
+}
+
+.lateral h2 {
+  margin: 0 0 10px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--gris);
+}
+
+.cuenta {
+  margin: 0 0 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.version {
+  margin: auto 0 0;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--gris);
+}
+
+/* Fondo de vídeo del login */
+.fondo {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #3d3346 url("/videos/dolomitas.jpg") center / cover;
+}
+
+/* Dos capas que se funden (0,8 s, igual que FUNDIDO en page.tsx) */
+.fondo video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+.fondo video.activo {
+  opacity: 1;
+}
+
+/* Velo para que el texto se lea sobre cualquier paisaje */
+.fondo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgb(61 51 70 / 0.35), rgb(61 51 70 / 0.1) 35%, rgb(61 51 70 / 0.7));
+}
+
+main.login h1,
+main.login .sub,
+main.login .vacio,
+main.login .separador {
+  color: #fff;
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.35);
+}
+
+/* Lugar: botón para añadirlo, buscador y lugar elegido */
+.poner-lugar,
+.lugar-elegido {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--tinta);
+}
+
+.poner-lugar {
+  align-self: flex-start;
+  padding: 4px 2px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.poner-lugar svg,
+.lugar-elegido svg {
+  width: 18px;
+  flex-shrink: 0;
+  fill: var(--rosa);
+  stroke: var(--tinta);
+  stroke-width: 1;
+}
+
+.lugar-elegido {
+  padding: 8px 8px 8px 12px;
+  border-radius: 12px;
+  background: var(--azul-claro);
+}
+
+.lugar-elegido span {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.lugar-elegido button {
+  border: none;
+  background: none;
+  font-size: 1rem;
+  color: var(--tinta);
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.buscador {
+  display: flex;
+  gap: 8px;
+}
+
+.buscador input {
+  flex: 1;
+  min-width: 0;
+}
+
+.buscador .pildora {
+  flex-shrink: 0;
+}
+
+.buscador .pildora:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+form .resultados {
+  gap: 6px;
+}
+
+form .resultados li {
+  padding: 0;
+  border: 1px solid #d6d6d6;
+  border-radius: 12px;
+}
+
+form .resultados button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  font: inherit;
+  color: var(--tinta);
+  text-align: left;
+  cursor: pointer;
+}
+
+form .resultados button:hover {
+  background: var(--gris-claro);
+}
+
+form .resultados small {
+  color: var(--gris);
+  font-size: 0.78rem;
+}
+
+.aviso {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--gris);
+}
+
+/* Mapa pequeño del plan guardado */
+.minimapa {
+  display: block;
+}
+
+.minimapa .mapa {
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: var(--gris-claro);
+}
+
+.minimapa .mapa img {
+  position: absolute;
+  max-width: none;
+}
+
+.minimapa .pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  transform: translate(-50%, -100%);
+  fill: var(--rosa);
+  stroke: var(--tinta);
+  stroke-width: 1.2;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
+}
+
+.minimapa .osm {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  padding: 0 3px;
+  background: rgb(255 255 255 / 0.75);
+  font-size: 7px;
+  line-height: 1.4;
+  color: #333;
+}
+
+.minimapa:hover .mapa {
+  box-shadow: 3px 3px 0 var(--azul);
+}
+
+/* Aviso "Plan borrado · Deshacer" */
+.deshacer {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--alto-pestanas) + 14px + env(safe-area-inset-bottom));
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 10px 10px 18px;
+  border-radius: 999px;
+  background: var(--tinta);
+  color: #fff;
+  transform: translateX(-50%);
+  box-shadow: 0 6px 20px rgb(61 51 70 / 0.25);
+  white-space: nowrap;
+}
+
+.deshacer button {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--rosa);
+  color: var(--tinta);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Barra de pestañas de abajo: Planes | Chat */
+main.con-pestanas {
+  padding-top: 24px; /* el título de la lista, más arriba */
+  padding-bottom: calc(var(--alto-pestanas) + 32px + env(safe-area-inset-bottom));
+}
+
+.pestanas {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  height: calc(var(--alto-pestanas) + env(safe-area-inset-bottom));
+  /* 10 px extra abajo para que los botones no queden pegados al borde */
+  padding: 8px 16px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--linea);
+  background: var(--tarjeta);
+}
+
+.pestanas button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: min(140px, 33%); /* tres pestañas: Planes, Mundo, Chat */
+  border: none;
+  border-radius: 14px;
+  background: none;
+  color: var(--gris);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.pestanas button svg {
+  width: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pestanas button[aria-current="page"] {
+  background: var(--rosa-claro);
+  color: var(--tinta);
+  font-weight: 700;
+}
+
+.globo {
+  position: absolute;
+  top: 4px;
+  left: calc(50% + 8px);
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--tinta);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+/* Chat */
+/* La caja de escribir es fija abajo: el chat deja hueco para que no tape el último mensaje */
+.chat {
+  --alto-escribir: 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: var(--alto-escribir);
+}
+
+.chat.respondiendo {
+  --alto-escribir: 128px;
+}
+
+.chat-cabecera {
+  padding-top: 8px;
+  text-align: center;
+}
+
+.chat-cabecera h2 {
+  margin: 0 0 6px;
+  font-family: var(--mono);
+  font-size: 1.6rem;
+}
+
+.conectados {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--gris);
+}
+
+.conectado {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  color: var(--tinta);
+}
+
+.punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2fb36d;
+  box-shadow: 0 0 0 3px rgb(47 179 109 / 0.2);
+}
+
+.mensajes {
+  gap: 8px;
+}
+
+.mensajes > .deslizable {
+  max-width: 80%;
+}
+
+.mensajes > .mio {
+  align-self: flex-end;
+}
+
+.mensajes > .suyo {
+  align-self: flex-start;
+}
+
+.mensajes .fondo-accion {
+  border-radius: 18px;
+  padding: 0 10px;
+  font-size: 0.75rem;
+}
+
+.icono-accion {
+  width: 18px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: var(--tinta);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.burbuja {
+  position: relative;
+  padding: 9px 13px 7px;
+  border: 1px solid var(--linea);
+  border-radius: 18px;
+  touch-action: pan-y;
+  transition: transform 0.2s ease;
+}
+
+.burbuja:focus-visible {
+  outline: 2px solid var(--lila);
+  outline-offset: 2px;
+}
+
+.burbuja.mio {
+  border-bottom-right-radius: 6px;
+  background: var(--azul-claro);
+}
+
+.burbuja.suyo {
+  border-bottom-left-radius: 6px;
+  background: var(--rosa-claro);
+}
+
+/* Mensaje citado, arriba de la respuesta */
+.cita {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 6px;
+  padding: 5px 9px;
+  border-left: 3px solid var(--tinta);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.6);
+  font-size: 0.8rem;
+}
+
+.cita span,
+.respondiendo-a span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--gris);
+  overflow-wrap: anywhere;
+}
+
+.mensajes p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mensajes small {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.7rem;
+  color: var(--gris);
+  text-align: right;
+}
+
+/* Caja para escribir: abajo del todo, pegada a las pestañas y a todo lo ancho */
+.escribir {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--alto-pestanas) + env(safe-area-inset-bottom));
+  z-index: 1;
+  gap: 8px;
+  padding: 10px max(16px, calc((100% - 480px) / 2 + 16px));
+  border: none;
+  border-top: 1px solid var(--linea);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.fila-escribir {
+  display: flex;
+  gap: 8px;
+}
+
+/* Panel "Respondiendo a…" encima de la caja */
+.respondiendo-a {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 8px 7px 11px;
+  border-left: 3px solid var(--azul);
+  border-radius: 10px;
+  background: var(--azul-claro);
+  font-size: 0.82rem;
+}
+
+.respondiendo-a > div {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.respondiendo-a button {
+  border: none;
+  background: none;
+  color: var(--tinta);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.escribir input {
+  flex: 1;
+  min-width: 0;
+}
+
+.escribir .anadir {
+  padding: 0 18px;
+}
+
+.escribir .anadir:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* En el chat, el aviso de deshacer va por encima de la caja de escribir */
+.deshacer.sobre-escribir {
+  bottom: calc(var(--alto-pestanas) + var(--alto-escribir) + 14px + env(safe-area-inset-bottom));
+}
+
+/* Fila de acciones de la tarjeta, a la izquierda: me gusta y comentarios */
+.acciones {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 0 -6px; /* -6px: el icono queda alineado con el texto */
+}
+
+.accion {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--gris);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.accion:hover {
+  background: var(--gris-claro);
+  color: var(--tinta);
+}
+
+.accion svg {
+  width: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.me-gusta.activo {
+  color: var(--tinta);
+}
+
+.me-gusta.activo svg {
+  fill: var(--rosa);
+  stroke: var(--tinta);
+  animation: latido 0.3s ease;
+}
+
+@keyframes latido {
+  50% { transform: scale(1.25); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .me-gusta.activo svg { animation: none; }
+}
+
+/* Post abierto con sus comentarios (<dialog>): hoja que sube desde abajo */
+.post {
+  width: min(480px, 100%);
+  max-width: none;
+  max-height: min(85dvh, 720px);
+  margin: auto auto 0;
+  padding: 18px 16px calc(14px + env(safe-area-inset-bottom));
+  border: 1px solid var(--linea);
+  border-bottom: none;
+  border-radius: 22px 22px 0 0;
+  background: var(--tarjeta);
+  color: var(--tinta);
+}
+
+.post[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: subir 0.22s ease-out;
+}
+
+.post::backdrop {
+  background: rgb(61 51 70 / 0.35);
+  animation: aparecer 0.22s ease-out;
+}
+
+/* Al cerrar (clase que pone cerrarConAnimacion): baja y el fondo se desvanece */
+.post.cerrando {
+  animation: bajar 0.22s ease-in forwards;
+}
+
+.post.cerrando::backdrop {
+  animation: desvanecer 0.22s ease-in forwards;
+}
+
+@keyframes subir {
+  from { transform: translateY(100%); }
+}
+
+@keyframes bajar {
+  to { transform: translateY(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .post[open],
+  .post::backdrop { animation: none; }
+}
+
+.post-cabecera {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.post-plan {
+  flex: 1;
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.post h2 {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--gris);
+}
+
+.post .vacio {
+  padding: 12px;
+}
+
+.lista-comentarios {
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.lista-comentarios li {
+  padding: 8px 12px;
+  border-radius: 14px;
+}
+
+.lista-comentarios li.mio { background: var(--azul-claro); }
+.lista-comentarios li.suyo { background: var(--rosa-claro); }
+
+.lista-comentarios small {
+  font-size: 0.72rem;
+  color: var(--gris);
+}
+
+.lista-comentarios p {
+  margin: 2px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.escribir-comentario {
+  flex-direction: row;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.escribir-comentario input {
+  flex: 1;
+  min-width: 0;
+}
+
+.escribir-comentario .anadir {
+  padding: 0 18px;
+}
+
+.escribir-comentario .anadir:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Aviso para instalar la app (solo la primera vez) */
+/* En el login va arriba (abajo está el formulario); con pestañas, encima de ellas */
+.instalar {
+  position: fixed;
+  left: 50%;
+  top: calc(72px + env(safe-area-inset-top));
+  z-index: 3;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px 12px;
+  width: min(448px, calc(100% - 32px));
+  padding: 14px;
+  border: 1px solid var(--linea);
+  border-radius: 20px;
+  background: var(--tarjeta);
+  color: var(--tinta);
+  box-shadow: 6px 6px 0 var(--rosa);
+  transform: translateX(-50%);
+  animation: asomar 0.3s ease-out;
+}
+
+.instalar.sobre-pestanas {
+  top: auto;
+  bottom: calc(var(--alto-pestanas) + 14px + env(safe-area-inset-bottom));
+}
+
+.instalar img {
+  border-radius: 12px;
+  border: 1px solid #e4e4e7;
+}
+
+.instalar-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.88rem;
+}
+
+.instalar-texto strong {
+  font-family: var(--mono);
+  font-size: 1rem;
+}
+
+.instalar-texto span {
+  color: var(--gris);
+}
+
+.instalar-botones {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.instalar-botones .anadir {
+  padding: 9px 18px;
+  font-size: 0.9rem;
+}
+
+@keyframes asomar {
+  from { opacity: 0; transform: translate(-50%, 16px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .instalar { animation: none; }
+}
+
+/* Cabecera de la lista al bajar: el título encoge y se queda pegado arriba, a la altura del
+   botón del menú (centro a 38px); "Nuestra lista de deseos", el saludo y los destellos se van.
+   Medidas: el centro del título está 73px por debajo del inicio de la cabecera → top: 38 − 73 = −35px,
+   y la cabecera empieza a 24px, así que se pega tras 59px de scroll. */
+@supports (animation-timeline: scroll()) {
+  main.con-pestanas .cabecera {
+    position: sticky;
+    top: -35px;
+    z-index: 2;
+    pointer-events: none; /* al estar pegada no debe tapar los clics de las tarjetas */
+  }
+
+  /* Franja blanca de 0 a 76px de la pantalla para que las tarjetas no se vean por debajo
+     (box-shadow + clip-path: de lado a lado sin provocar scroll horizontal) */
+  main.con-pestanas .cabecera::before {
+    content: "";
+    position: absolute;
+    top: 35px;
+    left: 0;
+    right: 0;
+    height: 76px;
+    z-index: -1;
+    background: var(--fondo);
+    box-shadow: 0 0 0 100vmax var(--fondo);
+    clip-path: inset(0 -100vmax);
+    opacity: 0;
+    animation: aparecer-franja linear both;
+    animation-timeline: scroll(root);
+    animation-range: 40px 59px;
+  }
+
+  main.con-pestanas .cabecera .titulo {
+    animation: encoger-titulo linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 59px;
+  }
+
+  main.con-pestanas .cabecera .badge,
+  main.con-pestanas .cabecera .sub {
+    animation: ocultar-al-bajar linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 40px;
+  }
+
+  /* Las tarjetas apiladas se pegan debajo de la franja del título */
+  .planes > .deslizable {
+    top: calc(86px + min(var(--index0) * 10px, 60px));
+  }
+}
+
+@keyframes encoger-titulo {
+  to { scale: 0.55; }
+}
+
+@keyframes ocultar-al-bajar {
+  to { opacity: 0; }
+}
+
+@keyframes aparecer-franja {
+  to { opacity: 1; }
+}
+
+/* Con el botón de ordenar, los tres filtros se reparten el ancho que queda (y caben en móviles estrechos) */
+.filtros button:not(.ordenar) {
+  flex: 1 1 auto; /* cada uno según su texto: "Pendientes" necesita más que "Todos" */
+  padding-inline: 8px;
+  font-size: 0.85rem;
+}
+
+/* Botón de ordenar, al final de los filtros */
+.filtros .ordenar {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  padding: 0;
+}
+
+.ordenar svg {
+  width: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: rotate 0.25s ease;
+}
+
+.ordenar.antiguos svg {
+  rotate: 180deg;
+}
+
+/* Tarjeta "Nuestro mundo": la Tierra en 3D con un marcador por plan con lugar */
+.tarjeta-mundo {
+  margin-top: 8px;
+  padding: 14px 14px 10px;
+  border: 1px solid var(--linea);
+  border-radius: 20px;
+  background: var(--tarjeta);
+  box-shadow: 6px 6px 0 var(--azul);
+}
+
+.tarjeta-mundo header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+.tarjeta-mundo h2 {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 1.05rem;
+}
+
+.leyenda {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--gris);
+}
+
+.leyenda svg {
+  width: 16px;
+  stroke: var(--tinta);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.leyenda-pin { fill: var(--rosa); }
+.leyenda-bandera { fill: var(--azul); margin-left: 8px; }
+
+.globo-3d {
+  position: relative;
+  /* Página propia: el globo ocupa casi toda la pantalla (cabecera de la tarjeta y pestañas aparte) */
+  height: max(300px, calc(100dvh - 350px - var(--alto-pestanas) - env(safe-area-inset-bottom))); /* deja sitio al panel de abajo */
+  margin-top: 6px;
+  overflow: hidden;
+  border-radius: 14px;
+  /* el globo usa el arrastre; fuera de él la página se desplaza normal */
+  cursor: grab;
+}
+
+.globo-3d:active { cursor: grabbing; }
+
+.mundo-vacio {
+  margin: 6px 0 2px;
+  font-size: 0.82rem;
+  color: var(--gris);
+  text-align: center;
+}
+
+/* Marcadores sobre el globo (elementos HTML que coloca globe.gl) */
+.marcador {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  pointer-events: auto; /* globe.gl desactiva los eventos en su capa HTML */
+  /* globe.gl ya centra el elemento en el punto con su propio transform en línea; "translate" se suma
+     a ese transform (no lo pisa). Subir medio marcador (15px) deja su borde inferior sobre el sitio,
+     pero la punta del pin (y el pie del mástil) está 3px por encima de ese borde: se baja 3px */
+  translate: 0 calc(-50% + 3px);
+}
+
+.marcador.abierto {
+  z-index: 1; /* el popup abierto, por encima de los demás marcadores */
+}
+
+.marcador-pin {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.marcador svg {
+  width: 28px;
+  height: 28px;
+  fill: var(--rosa);
+  stroke: var(--tinta);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.45));
+}
+
+.marcador.hecho svg { fill: var(--azul); }
+
+/* Popup encima del marcador: sitio, plan y enlace a Google Maps */
+.marcador-popup {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  translate: -50% 0;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: 230px;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--tarjeta);
+  color: var(--tinta);
+  box-shadow: 3px 3px 0 var(--rosa);
+  cursor: default;
+}
+
+.marcador.abierto .marcador-popup {
+  display: flex;
+}
+
+.marcador-popup-texto {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.marcador-popup-texto strong,
+.marcador-popup-texto small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marcador-popup-texto small {
+  color: var(--gris);
+  font-size: 0.72rem;
+}
+
+.marcador-maps {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--tinta);
+}
+
+.marcador-maps svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2;
+  filter: none;
+}
+
+.atribucion {
+  margin: 4px 0 0;
+  font-size: 0.68rem;
+  color: var(--gris);
+  text-align: right;
+}
+
+.atribucion a {
+  color: inherit;
+}
+
+/* Cabecera compacta de Mundo y Chat: el título ya pequeño (como en Planes al bajar), centrado a la
+   altura del botón del menú (38px) sobre una franja blanca, y pegado arriba al hacer scroll */
+.cabecera.compacta {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  justify-content: center;
+  height: 76px;
+  margin: -24px 0 4px; /* -24px: anula el padding superior de la página para empezar en el borde */
+  pointer-events: none;
+  background: var(--fondo);
+  box-shadow: 0 0 0 100vmax var(--fondo);
+  clip-path: inset(0 -100vmax);
+}
+
+.cabecera.compacta .titulo {
+  margin: 0;
+  scale: 0.55;
+}
+
+/* Nubes del cambio satélite ↔ mapa: cubren el centro y se apartan hacia los bordes */
+/* Las nubes se colocan respecto a la tarjeta entera, no solo al globo */
+.tarjeta-mundo {
+  position: relative;
+}
+
+/* Llena toda la tarjeta del mundo (globo, título y leyenda), con sus esquinas. No bloquea toques.
+   container-type: el tamaño de las nubes se mide respecto a la tarjeta (cqmax) */
+.nubes {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  border-radius: 20px;
+  pointer-events: none;
+  container-type: size;
+  /* 3D: las nubes están a distintas profundidades y la cámara cae a través de ellas */
+  perspective: 500px;
+  perspective-origin: 50% 50%;
+}
+
+/* Capas de nubes (canvas con ruido fractal, ver nubes.ts) a distintas distancias.
+   --x/--y: dónde está cada una; --dx/--dy: hacia dónde sale; --s: tamaño (las de delante, más grandes) */
+.nube {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* Según el lado largo de la tarjeta: la cubre igual en un móvil en vertical que en un ordenador */
+  width: 75cqmax;
+  aspect-ratio: 1;
+  margin: -37.5cqmax 0 0 -37.5cqmax;
+  /* profundidad final de cada nube al cubrir: las de s > 1 quedan más cerca de la cámara */
+  --z: calc((var(--s) - 1) * 500px);
+  opacity: 0;
+  filter: blur(1px) drop-shadow(0 6px 10px rgb(70 80 100 / 0.18));
+  will-change: transform, opacity;
+}
+
+/* Posición, dirección, tamaño, retraso y duración de cada una: en la lista NUBES de Mundo.tsx */
+
+/* Velo blanco que tapa el instante del cambio de teselas */
+.bruma {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgb(250 252 255 / 0.8), rgb(236 241 248 / 0.55) 60%, rgb(236 241 248 / 0.25));
+  opacity: 0;
+}
+
+/* Caída a través de las nubes. Fases (las pone pasarNubes en Mundo.tsx):
+   data-fase = cubrir | despejar, data-sentido = acercando (caer) | alejando (subir).
+   Cubrir: suben desde muy abajo (lejos), acelerando, hasta envolverte.
+   Despejar: las atraviesas, pasan a tu lado y salen por los bordes; debajo, el suelo. */
+.nubes[data-fase="cubrir"] .nube {
+  animation: nube-cubrir 0.8s cubic-bezier(0.5, 0, 0.75, 0.4) var(--r) both;
+}
+
+.nubes[data-fase="despejar"] .nube {
+  animation: nube-despejar 1.1s cubic-bezier(0.55, 0, 0.85, 0.35) calc(var(--r) / 2) both;
+}
+
+/* Al subir, el viaje al revés: llegan desde detrás de la cámara y se quedan abajo */
+.nubes[data-sentido="alejando"][data-fase="cubrir"] .nube {
+  animation-name: nube-despejar;
+  animation-direction: reverse;
+  animation-timing-function: cubic-bezier(0.15, 0.65, 0.45, 1);
+}
+
+.nubes[data-sentido="alejando"][data-fase="despejar"] .nube {
+  animation-name: nube-cubrir;
+  animation-direction: reverse;
+  animation-timing-function: cubic-bezier(0.25, 0.6, 0.5, 1);
+}
+
+/* Turbulencia: un temblor muy leve mientras se atraviesan */
+.nubes[data-fase="cubrir"],
+.nubes[data-fase="despejar"] {
+  animation: turbulencia 0.35s linear infinite;
+}
+
+.nubes[data-fase="cubrir"] .bruma {
+  animation: bruma-cubrir 0.8s ease-in both;
+}
+
+.nubes[data-fase="despejar"] .bruma {
+  animation: bruma-cubrir 0.7s ease-out reverse both;
+}
+
+/* Muy abajo (lejos) → envolviendo la cámara */
+@keyframes nube-cubrir {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--x), var(--y), -1800px);
+  }
+  35% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(var(--x), var(--y), var(--z));
+  }
+}
+
+/* Envolviendo la cámara → pasando a su lado y saliendo por los bordes */
+@keyframes nube-despejar {
+  from {
+    opacity: 1;
+    transform: translate3d(var(--x), var(--y), var(--z));
+  }
+  70% {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(calc(var(--x) + var(--dx) * 0.6), calc(var(--y) + var(--dy) * 0.6), 430px);
+  }
+}
+
+@keyframes turbulencia {
+  0%, 100% { translate: 0 0; }
+  25% { translate: 1.5px -1px; }
+  50% { translate: -1px 1.5px; }
+  75% { translate: 1px 1px; }
+}
+
+@keyframes bruma-cubrir {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nubes[data-fase] { animation: none; }
+}
+
+/* Ajustes de la cuenta: botones y formulario para cambiar la contraseña */
+.botones-cuenta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cambiar-clave {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.cambiar-clave .anadir {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+}
+
+.aviso-clave {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+  color: #b42318;
+}
+
+.aviso-clave.ok {
+  color: #1a7f4b;
+}
+
+/* Panel bajo la tarjeta del mundo */
+.panel-mundo {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.panel-mundo .pildora {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-mundo svg {
+  width: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Login: alternar entre entrar y crear cuenta. Panel lila para que se vea sobre el vídeo */
+.cambiar-modo {
+  align-self: center;
+  margin-top: 16px;
+  padding: 11px 20px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--lila);
+  color: var(--tinta);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 var(--tinta);
+  cursor: pointer;
+  transition: translate 0.15s, box-shadow 0.15s;
+}
+
+.cambiar-modo:active {
+  translate: 2px 2px;
+  box-shadow: 1px 1px 0 var(--tinta);
+}
+
+/* Nombre del grupo, arriba de los planes */
+.badge-grupo {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 6px 16px 6px 12px;
+  background: var(--lila);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 2px 2px 0 var(--tinta);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge-grupo svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--tinta);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Crear grupo / unirse con código */
+.form-grupo {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.form-grupo .separador {
+  margin: 0;
+  color: var(--gris);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.form-grupo input[name="codigo"] {
+  font-family: var(--mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* Barra lateral: código del grupo para invitar */
+.invitar {
+  display: flex;
+  flex-wrap: wrap; /* en móvil, WhatsApp baja de línea en vez de salirse */
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+/* El código es un botón: al tocarlo se copia y sale un aviso encima */
+.codigo-copiar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px dashed var(--linea);
+  border-radius: 10px;
+  background: none;
+  color: var(--tinta);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.codigo-copiar:hover {
+  background: var(--gris-claro);
+}
+
+.codigo-copiar:active {
+  scale: 0.96;
+}
+
+.codigo-copiar code {
+  font-size: 1rem;
+  letter-spacing: 0.2em;
+}
+
+.codigo-copiar svg {
+  width: 16px;
+  fill: none;
+  stroke: var(--tinta);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.copiado {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  translate: -50% 0;
+  padding: 6px 12px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--lila);
+  color: var(--tinta);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 2px 2px 0 var(--tinta);
+  pointer-events: none;
+  animation: copiado 1.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes copiado {
+  0% { opacity: 0; scale: 0.6; transform: translateY(6px); }
+  15% { opacity: 1; scale: 1; transform: none; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copiado { animation: none; }
+}
+
+.whatsapp {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: #25d366; /* verde de WhatsApp: se reconoce al momento */
+  transition: scale 0.15s;
+}
+
+.whatsapp:active {
+  scale: 0.92;
+}
+
+.whatsapp svg {
+  width: 20px;
+  fill: #fff;
+}
+
+.otro-grupo {
+  margin-top: 10px;
+}
+
+.otro-grupo summary {
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+/* Novedades: botón arriba a la derecha (como el del menú) y popup que sale de él */
+.abrir-novedades {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--tarjeta);
+  cursor: pointer;
+}
+
+.abrir-novedades svg {
+  width: 20px;
+  fill: var(--rosa);
+  stroke: var(--tinta);
+  stroke-width: 1.2;
+  transition: rotate 0.4s ease;
+}
+
+.abrir-novedades:hover svg {
+  rotate: 90deg;
+}
+
+.novedades-popup {
+  position: fixed;
+  inset: calc(70px + env(safe-area-inset-top)) 16px auto auto;
+  width: min(380px, calc(100vw - 32px));
+  max-height: min(70dvh, 560px);
+  margin: 0;
+  padding: 18px 18px 14px;
+  border: 1px solid var(--linea);
+  border-radius: 20px;
+  background: var(--tarjeta);
+  color: var(--tinta);
+  box-shadow: 6px 6px 0 var(--lila);
+  transform-origin: calc(100% - 22px) -48px; /* sale del botón */
+}
+
+.novedades-popup[open] {
+  display: flex;
+  flex-direction: column;
+  animation: novedades-abrir 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.novedades-popup::backdrop {
+  background: rgb(61 51 70 / 0.35);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  animation: aparecer 0.25s ease-out;
+}
+
+.novedades-popup.cerrando {
+  animation: novedades-cerrar 0.22s ease-in forwards;
+}
+
+.novedades-popup.cerrando::backdrop {
+  animation: desvanecer 0.22s ease-in forwards;
+}
+
+@keyframes novedades-abrir {
+  from {
+    opacity: 0;
+    scale: 0.4;
+    rotate: 4deg;
+  }
+}
+
+@keyframes novedades-cerrar {
+  to {
+    opacity: 0;
+    scale: 0.5;
+  }
+}
+
+.novedades-cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.novedades-cabecera h2 {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 1.2rem;
+}
+
+.novedades-popup ul {
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+  margin: 0;
+  padding: 0 0 4px;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.novedades-popup li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--gris-claro);
+  font-size: 0.92rem;
+  line-height: 1.4;
+  animation: novedad-entrar 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: calc(0.12s + min(var(--i), 10) * 0.045s);
+}
+
+/* La más nueva, destacada */
+.novedades-popup li:first-child {
+  background: var(--rosa-claro);
+}
+
+.novedades-popup li svg {
+  flex-shrink: 0;
+  width: 14px;
+  margin-top: 3px;
+  fill: var(--rosa);
+  stroke: var(--tinta);
+  stroke-width: 1.5;
+}
+
+@keyframes novedad-entrar {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+
+.novedades-popup .version {
+  margin: 10px 0 0;
+  text-align: right;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .novedades-popup[open],
+  .novedades-popup::backdrop,
+  .novedades-popup li { animation: none; }
+}
+
+/* Borrar grupo: discreto hasta que se pide, y la confirmación bien visible */
+.borrar-grupo {
+  margin-top: 12px;
+  border-color: #c2416b;
+  color: #c2416b;
+}
+
+.confirmar-borrado {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--rosa-claro);
+  animation: aparecer 0.2s ease-out;
+}
+
+.confirmar-borrado p {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.anadir.peligro {
+  padding: 10px 16px;
+  background: #c2416b;
+  font-size: 0.9rem;
+}
+
+.anadir.peligro:hover {
+  background: #a8335a;
 }
