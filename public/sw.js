@@ -27,7 +27,7 @@ self.addEventListener("notificationclick", (event) => {
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((ventanas) => {
       const abierta = ventanas.find((v) => new URL(v.url).origin === self.location.origin);
       if (abierta) {
-        abierta.postMessage({ vista: "chat" });
+        abierta.postMessage({ vista: "chat", grupo: new URL(url).searchParams.get("grupo") });
         return abierta.focus();
       }
       return self.clients.openWindow(url);

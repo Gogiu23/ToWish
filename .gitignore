@@ -43,3 +43,6 @@ next-env.d.ts
 
 # herramientas locales
 .serena/
+
+# grafo de conocimiento generado por graphify (local)
+graphify-out/

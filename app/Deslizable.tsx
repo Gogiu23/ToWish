@@ -6,11 +6,12 @@ const UMBRAL_DERECHA = 0.35; // fracción del ancho para borrar (sale volando)
 const UMBRAL_IZQUIERDA = 60; // px para responder (vuelve a su sitio)
 const TOPE_IZQUIERDA = 110; // no se arrastra más allá: es solo un gesto
 
-type Accion = { etiqueta: string; accion: () => void };
+type Accion = { etiqueta: React.ReactNode; accion: () => void };
 
 type Props = {
   className: string;
   claseFila?: string;
+  estiloFila?: React.CSSProperties;
   derecha?: Accion; // deslizar a la derecha (borrar)
   izquierda?: Accion; // deslizar a la izquierda (responder)
   children: React.ReactNode;
@@ -21,7 +22,7 @@ type Props = {
  * (touch-action: pan-y); solo un gesto claramente horizontal, y en una dirección con acción, lo mueve.
  * Con teclado: Supr = derecha, R = izquierda.
  */
-export default function Deslizable({ className, claseFila = "", derecha, izquierda, children }: Props) {
+export default function Deslizable({ className, claseFila = "", estiloFila, derecha, izquierda, children }: Props) {
   const elemento = useRef<HTMLDivElement>(null);
   const gesto = useRef<{ x: number; y: number; direccion: "derecha" | "izquierda" | null } | null>(null);
   const [dx, setDx] = useState(0);
@@ -48,7 +49,7 @@ export default function Deslizable({ className, claseFila = "", derecha, izquier
   }
 
   return (
-    <li className={`deslizable ${claseFila}`}>
+    <li className={`deslizable ${claseFila}`} style={estiloFila}>
       {derecha && (
         <div className="fondo-accion fondo-borrar" aria-hidden="true" style={{ opacity: Math.min(1, Math.max(0, dx) / 60) }}>
           {derecha.etiqueta}

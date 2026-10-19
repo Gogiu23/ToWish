@@ -26,20 +26,21 @@ const upsert = (cs: Comentario[], c: Comentario) =>
  * Todos los comentarios, al día por Realtime, para poder enseñar el contador en cada tarjeta.
  * ponytail: carga hasta 1000 de golpe; con muchos más, pedir solo los del plan abierto y contar en servidor
  */
-export function useComentarios(activo: boolean) {
+export function useComentarios(grupo: string | null) {
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
 
   useEffect(() => {
-    if (!activo) return;
+    if (!grupo) return;
     const cargar = () =>
       db
-        .listRows({ ...C, queries: [Query.orderAsc("$createdAt"), Query.limit(1000)] })
+        .listRows({ ...C, queries: [Query.equal("grupo", grupo), Query.orderAsc("$createdAt"), Query.limit(1000)] })
         .then((r) => setComentarios(r.rows.map(aComentario)))
         .catch(() => {});
     cargar();
     const sub = realtime.subscribe(
       Channel.tablesdb(BD).table(C.tableId).row(),
       (ev: RealtimeResponseEvent<Models.DefaultRow>) => {
+        if (ev.payload.grupo !== grupo) return; // de otro de tus grupos
         const c = aComentario(ev.payload);
         if (ev.events.some((e) => e.endsWith(".delete"))) setComentarios((cs) => cs.filter((x) => x.id !== c.id));
         else setComentarios((cs) => upsert(cs, c));
@@ -50,7 +51,7 @@ export function useComentarios(activo: boolean) {
       window.removeEventListener("focus", cargar);
       sub.then((s) => s.unsubscribe());
     };
-  }, [activo]);
+  }, [grupo]);
 
   const anadir = (c: Comentario) => setComentarios((cs) => upsert(cs, c));
   return { comentarios, anadir };
@@ -60,6 +61,7 @@ type Props = {
   plan: { id: string; texto: string } | null; // null = cerrado
   comentarios: Comentario[]; // solo los de este plan
   usuario: Models.User;
+  grupo: string;
   t: Textos;
   idioma: Idioma;
   onAnadido: (c: Comentario) => void;
@@ -67,7 +69,7 @@ type Props = {
 };
 
 // El "post" abierto: el plan arriba, sus comentarios y una caja para escribir. <dialog> nativo: Esc y foco gratis
-export default function Comentarios({ plan, comentarios, usuario, t, idioma, onAnadido, onCerrar }: Props) {
+export default function Comentarios({ plan, comentarios, usuario, grupo, t, idioma, onAnadido, onCerrar }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const [texto, setTexto] = useState("");
   const [error, setError] = useState("");
@@ -88,9 +90,13 @@ export default function Comentarios({ plan, comentarios, usuario, t, idioma, onA
       const r = await db.createRow({
         ...C,
         rowId: ID.unique(),
-        data: { planId: plan.id, texto: tx, autor: usuario.name, autorId: usuario.$id },
-        // Leer: todos (permiso de la tabla). Editar y borrar: solo quien lo escribió
-        permissions: [Permission.update(Role.user(usuario.$id)), Permission.delete(Role.user(usuario.$id))],
+        data: { planId: plan.id, texto: tx, autor: usuario.name, autorId: usuario.$id, grupo },
+        // Leer: los del grupo. Editar y borrar: solo quien lo escribió
+        permissions: [
+          Permission.read(Role.team(grupo)),
+          Permission.update(Role.user(usuario.$id)),
+          Permission.delete(Role.user(usuario.$id)),
+        ],
       });
       onAnadido(aComentario(r));
     } catch (err) {

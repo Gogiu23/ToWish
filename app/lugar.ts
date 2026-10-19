@@ -74,6 +74,96 @@ export async function nombreCercano(lat: number, lng: number, idioma: string, in
   return d.name || d.display_name?.split(",").slice(0, 2).join(",").trim() || "";
 }
 
+type RasgoPhoton = {
+  geometry: { coordinates: [number, number] };
+  properties: {
+    name?: string;
+    street?: string;
+    housenumber?: string;
+    postcode?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+  };
+};
+
+type ResultadoGeoapify = {
+  lat: number;
+  lon: number;
+  name?: string;
+  address_line1?: string;
+  address_line2?: string;
+};
+
+// Clave pública de Geoapify (va en el navegador; en Geoapify está limitada a nuestro dominio).
+// Se pone como variable de entorno en Netlify y en .env.local; sin ella se usa Photon.
+const CLAVE_GEOAPIFY = process.env.NEXT_PUBLIC_GEOAPIFY_KEY;
+
+/**
+ * Sugerencias mientras se escribe: calles con número, comercios, monumentos, ciudades…
+ * Con clave, Geoapify (buena calidad de direcciones, en el idioma de la app); sin ella, Photon.
+ * "cerca": da prioridad a lo que está cerca de ese punto.
+ */
+// Búsquedas ya hechas: al borrar una letra (o repetir) las sugerencias salen al momento
+const yaSugeridos = new Map<string, ResultadoLugar[]>();
+
+export async function sugerirLugares(
+  q: string,
+  idioma: string,
+  cerca?: { lat: number; lng: number },
+  signal?: AbortSignal,
+): Promise<ResultadoLugar[]> {
+  const clave = `${idioma}|${cerca?.lat},${cerca?.lng}|${q.toLowerCase()}`;
+  const guardado = yaSugeridos.get(clave);
+  if (guardado) return guardado;
+  const rs = await (CLAVE_GEOAPIFY ? sugerirConGeoapify(q, idioma, cerca, signal) : sugerirConPhoton(q, cerca, signal));
+  yaSugeridos.set(clave, rs);
+  return rs;
+}
+
+async function sugerirConGeoapify(q: string, idioma: string, cerca?: { lat: number; lng: number }, signal?: AbortSignal) {
+  const url = new URL("https://api.geoapify.com/v1/geocode/autocomplete");
+  url.search = new URLSearchParams({ text: q, apiKey: CLAVE_GEOAPIFY!, lang: idioma, limit: "6", format: "json" }).toString();
+  if (cerca) url.searchParams.set("bias", `proximity:${cerca.lng},${cerca.lat}`);
+  const r = await fetch(url, { signal });
+  if (!r.ok) throw new Error(`Geoapify ${r.status}`);
+  const { results = [] }: { results?: ResultadoGeoapify[] } = await r.json();
+  // address_line1: "Calle de Alcalá, 50" o el nombre del sitio; address_line2: "28014 Madrid, España"
+  return results
+    .map((d) => ({ nombre: d.address_line1 || d.name || "", detalle: d.address_line2 ?? "", lat: d.lat, lng: d.lon }))
+    .filter((d) => d.nombre && valido(d.lat, d.lng));
+}
+
+// Photon (Komoot, datos de OpenStreetMap): sin clave y pensado para autocompletar, pero con
+// direcciones con número de calidad irregular. Se usa si no hay clave de Geoapify.
+async function sugerirConPhoton(q: string, cerca?: { lat: number; lng: number }, signal?: AbortSignal) {
+  const url = new URL("https://photon.komoot.io/api/");
+  url.searchParams.set("q", q);
+  url.searchParams.set("limit", "6");
+  url.searchParams.set("lang", "default"); // nombres locales (sin esto, Photon los da en inglés)
+  if (cerca) {
+    url.searchParams.set("lat", String(cerca.lat));
+    url.searchParams.set("lon", String(cerca.lng));
+  }
+  const r = await fetch(url, { signal });
+  if (!r.ok) throw new Error(`Photon ${r.status}`);
+  const { features }: { features: RasgoPhoton[] } = await r.json();
+  const vistos = new Set<string>();
+  return features.flatMap((f): ResultadoLugar[] => {
+    const p = f.properties;
+    const [lng, lat] = f.geometry.coordinates;
+    const calle = [p.street, p.housenumber].filter(Boolean).join(" ");
+    const nombre = p.name || calle || p.city || "";
+    const detalle = [p.name ? calle : "", [p.postcode, p.city].filter(Boolean).join(" "), p.country]
+      .filter((x) => x && x !== nombre)
+      .join(", ");
+    const clave = `${nombre}|${detalle}`;
+    if (!nombre || !valido(lat, lng) || vistos.has(clave)) return []; // Photon a veces repite el mismo sitio
+    vistos.add(clave);
+    return [{ nombre, detalle, lat, lng }];
+  });
+}
+
 // Abre Google Maps con la ruta hasta el sitio (en el móvil abre la app)
 export const urlRuta = (l: Lugar) => `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}`;
 

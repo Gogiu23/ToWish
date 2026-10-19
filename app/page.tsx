@@ -1,16 +1,31 @@
 "use client";
 
-import { Channel, ID, Models, Operator, Query, RealtimeResponseEvent } from "appwrite";
+import { Channel, ID, Models, Operator, Permission, Query, RealtimeResponseEvent, Role } from "appwrite";
 import { account, BD, db, realtime } from "./appwrite";
 import { useEffect, useRef, useState } from "react";
+import { preconnect } from "react-dom";
 import { useBorradoDiferido } from "./borrado";
 import Chat from "./Chat";
 import Comentarios, { useComentarios, type Comentario } from "./Comentarios";
 import Deslizable from "./Deslizable";
+import FormGrupo, { textoErrorGrupo } from "./FormGrupo";
+import {
+  grupoGuardado,
+  guardarGrupo,
+  guardarInvitacion,
+  invitacionPendiente,
+  misGrupos,
+  unirseAGrupo,
+  type Grupo,
+} from "./grupos";
 import { TEXTOS, type Idioma, type Textos } from "./i18n";
+import Instalar from "./Instalar";
 import Lateral from "./Lateral";
+import Mundo from "./Mundo";
+import Novedades from "./Novedades";
+import pkg from "../package.json";
 import { desactivarNotificaciones, registrarServiceWorker } from "./notificaciones";
-import { buscarLugares, teselas, urlRuta, type Lugar, type ResultadoLugar } from "./lugar";
+import { buscarLugares, sugerirLugares, teselas, urlRuta, type Lugar, type ResultadoLugar } from "./lugar";
 import { formatearTiempo } from "./tiempo";
 
 type Plan = { id: string; texto: string; quien: string; hecho: boolean; creado: string; likes: string[]; lugar?: Lugar };
@@ -35,6 +50,11 @@ const upsert = (ps: Plan[], p: Plan) =>
   ps.some((x) => x.id === p.id) ? ps.map((x) => (x.id === p.id ? p : x)) : [p, ...ps];
 
 const CLAVE_IDIOMA = "towish-idioma";
+
+// Cierre de sesión automático: fuera de la app más de 5 min, o dentro sin actividad 10 min
+const MAX_FUERA = 5 * 60 * 1000;
+const MAX_INACTIVO = 10 * 60 * 1000;
+const CLAVE_SALIDA = "towish-salida"; // hora a la que se dejó la app (al volver se mira cuánto pasó)
 
 // Preferencia por dispositivo: cada uno ve la app en su idioma
 function idiomaGuardado(): Idioma {
@@ -142,28 +162,64 @@ function Deseando({ desde, idioma, t }: { desde: string; idioma: Idioma; t: Text
 
 const ESTRELLA = "M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z";
 
-function Cabecera({ badge, children }: { badge: string; children: React.ReactNode }) {
+// esGrupo: el badge es el nombre del grupo (lila, con icono de personas)
+function Cabecera({ badge, esGrupo, children }: { badge: string; esGrupo?: boolean; children: React.ReactNode }) {
   return (
     <header className="cabecera">
-      <svg className="destello d1" viewBox="0 0 24 24" aria-hidden="true">
-        <path d={ESTRELLA} />
-      </svg>
-      <svg className="destello d2" viewBox="0 0 24 24" aria-hidden="true">
-        <path d={ESTRELLA} />
-      </svg>
-      <span className="badge">{badge}</span>
-      <h1>ToWish</h1>
+      <span className={`badge${esGrupo ? " badge-grupo" : ""}`}>
+        {esGrupo && (
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm-6 9c0-3.3 2.7-6 6-6s6 2.7 6 6M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14.3c1.8.9 3 2.9 3 5.7" />
+          </svg>
+        )}
+        {badge}
+      </span>
+      {/* Los brillos van dentro del bloque del título: al encogerse al bajar, se van con él */}
+      <div className="titulo">
+        <svg className="destello d1" viewBox="0 0 24 24" aria-hidden="true">
+          <path d={ESTRELLA} />
+        </svg>
+        <svg className="destello d2" viewBox="0 0 24 24" aria-hidden="true">
+          <path d={ESTRELLA} />
+        </svg>
+        <h1>ToWish</h1>
+      </div>
       <p className="sub">{children}</p>
+    </header>
+  );
+}
+
+// En Mundo y Chat el título va directamente pequeño y pegado arriba (como en Planes al bajar)
+function CabeceraCompacta() {
+  return (
+    <header className="cabecera compacta">
+      <div className="titulo">
+        <svg className="destello d1" viewBox="0 0 24 24" aria-hidden="true">
+          <path d={ESTRELLA} />
+        </svg>
+        <svg className="destello d2" viewBox="0 0 24 24" aria-hidden="true">
+          <path d={ESTRELLA} />
+        </svg>
+        <p className="h1">ToWish</p>
+      </div>
     </header>
   );
 }
 
 export default function Home() {
   const [usuario, setUsuario] = useState<Models.User | null>(null);
+  const peticionLugar = useRef(0); // número de la última búsqueda de sugerencias lanzada
+  const enseñadaLugar = useRef(0); // y de la que se está enseñando
+  preconnect("https://api.geoapify.com"); // la primera sugerencia se ahorra abrir la conexión
   const [cargado, setCargado] = useState(false);
+  const [grupos, setGrupos] = useState<Grupo[] | null>(null); // null: aún cargando
+  const [grupoId, setGrupoId] = useState<string | null>(null);
+  const [registro, setRegistro] = useState(false); // login: entrar o crear cuenta
+  const [invitado, setInvitado] = useState(false); // ha llegado con un enlace de invitación
   const [planes, setPlanes] = useState<Plan[]>([]);
   const [texto, setTexto] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
+  const [antiguosPrimero, setAntiguosPrimero] = useState(false);
   const [error, setError] = useState("");
   const [idioma, setIdioma] = useState<Idioma>("es");
   const [conLugar, setConLugar] = useState(false);
@@ -179,10 +235,12 @@ export default function Home() {
     onError: (e) => setError(e.message),
   });
   const { esPendiente } = borrado;
-  const [vista, setVista] = useState<"planes" | "chat">("planes");
+  const [vista, setVista] = useState<"planes" | "mundo" | "chat">("planes");
   const [noLeidos, setNoLeidos] = useState(0);
   const [planAbierto, setPlanAbierto] = useState<Plan | null>(null);
-  const { comentarios, anadir: anadirComentario } = useComentarios(!!usuario);
+  // El grupo que se ve (si el guardado ya no existe, el primero)
+  const grupo = grupos?.find((g) => g.id === grupoId) ?? grupos?.[0] ?? null;
+  const { comentarios, anadir: anadirComentario } = useComentarios(usuario ? (grupo?.id ?? null) : null);
   const porPlan: Record<string, Comentario[]> = {};
   for (const c of comentarios) (porPlan[c.planId] ??= []).push(c);
   const t = TEXTOS[idioma];
@@ -205,16 +263,75 @@ export default function Home() {
   useEffect(() => {
     registrarServiceWorker();
     const url = new URL(location.href);
-    if (url.searchParams.get("vista") === "chat") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- leer la URL solo tras montar evita el desajuste de hidratación
-      setVista("chat");
-      url.searchParams.delete("vista");
+    const { searchParams: q } = url;
+    // Enlace de invitación (?unirse=CÓDIGO): se guarda hasta que la persona entra o se da de alta
+    const codigo = q.get("unirse");
+    if (codigo) guardarInvitacion(codigo);
+    // Aviso de un mensaje (?grupo=…): se abre ese grupo
+    const g = q.get("grupo");
+    if (g) guardarGrupo(g);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- leer la URL solo tras montar evita el desajuste de hidratación
+    setInvitado(!!invitacionPendiente());
+    if (invitacionPendiente()) setRegistro(true); // lo normal con un enlace es no tener cuenta aún
+    if (q.get("vista") === "chat") setVista("chat");
+    if (codigo || g || q.has("vista")) {
+      ["unirse", "grupo", "vista"].forEach((k) => q.delete(k));
       history.replaceState(null, "", url);
     }
-    const alMensaje = (e: MessageEvent) => e.data?.vista === "chat" && setVista("chat");
+    const alMensaje = (e: MessageEvent) => {
+      if (e.data?.vista !== "chat") return;
+      if (e.data.grupo) elegirGrupo(e.data.grupo);
+      setVista("chat");
+    };
     navigator.serviceWorker?.addEventListener("message", alMensaje);
     return () => navigator.serviceWorker?.removeEventListener("message", alMensaje);
   }, []);
+
+  // Al entrar: primero la invitación pendiente (si la hay), luego tus grupos
+  useEffect(() => {
+    if (!usuario) return;
+    let vivo = true;
+    (async () => {
+      let elegido = grupoGuardado();
+      const codigo = invitacionPendiente();
+      if (codigo) {
+        guardarInvitacion(null);
+        setInvitado(false);
+        try {
+          elegido = await unirseAGrupo(codigo);
+          guardarGrupo(elegido);
+        } catch (e) {
+          setError(textoErrorGrupo(t, (e as Error).message));
+        }
+      }
+      const gs = await misGrupos();
+      if (!vivo) return;
+      setGrupos(gs);
+      setGrupoId(elegido);
+    })().catch((e) => setError((e as Error).message));
+    return () => {
+      vivo = false;
+    };
+  }, [usuario]); // eslint-disable-line react-hooks/exhaustive-deps -- t solo para el texto del error
+
+  function elegirGrupo(id: string) {
+    guardarGrupo(id);
+    setGrupoId(id);
+  }
+
+  // Recién creado o recién unido: se recargan los grupos (con sus miembros) y se abre ese
+  async function grupoNuevo(id: string) {
+    setGrupos(await misGrupos());
+    elegirGrupo(id);
+    setError("");
+  }
+
+  // Tras borrar el grupo: al siguiente que tengas o, si no queda ninguno, a crear o unirse
+  async function grupoBorrado() {
+    setPlanes([]);
+    setGrupoId(null);
+    setGrupos(await misGrupos().catch(() => []));
+  }
 
   function cambiarIdioma(i: Idioma) {
     setIdioma(i);
@@ -223,11 +340,12 @@ export default function Home() {
     } catch {}
   }
 
+  const idGrupo = grupo?.id;
   useEffect(() => {
-    if (!usuario) return;
+    if (!usuario || !idGrupo) return;
     const cargar = () =>
       db
-        .listRows({ ...T, queries: [Query.orderDesc("$createdAt"), Query.limit(500)] })
+        .listRows({ ...T, queries: [Query.equal("grupo", idGrupo), Query.orderDesc("$createdAt"), Query.limit(500)] })
         .then((r) => setPlanes(r.rows.map(aPlan).filter((p) => !esPendiente(p.id))))
         .catch((e) => setError(e.message));
     cargar();
@@ -235,6 +353,7 @@ export default function Home() {
     const sub = realtime.subscribe(
       Channel.tablesdb(T.databaseId).table(T.tableId).row(),
       (ev: RealtimeResponseEvent<Models.DefaultRow>) => {
+        if (ev.payload.grupo !== idGrupo) return; // de otro de tus grupos
         const p = aPlan(ev.payload);
         if (ev.events.some((e) => e.endsWith(".delete")))
           setPlanes((ps) => ps.filter((x) => x.id !== p.id));
@@ -247,22 +366,98 @@ export default function Home() {
       window.removeEventListener("focus", cargar);
       sub.then((s) => s.unsubscribe());
     };
-  }, [usuario, esPendiente]);
+  }, [usuario, idGrupo, esPendiente]);
 
   async function entrar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     setError("");
+    const email = String(f.get("email"));
+    const password = String(f.get("password"));
+    if (registro) {
+      try {
+        await account.create({ userId: ID.unique(), email, password, name: String(f.get("nombre")).trim() });
+      } catch (err) {
+        // 409: ya hay una cuenta con ese email
+        return setError((err as { code?: number }).code === 409 ? t.emailEnUso : t.errorRegistro);
+      }
+    }
     try {
-      await account.createEmailPasswordSession({
-        email: String(f.get("email")),
-        password: String(f.get("password")),
-      });
+      await account.createEmailPasswordSession({ email, password });
       setUsuario(await account.get());
     } catch {
       setError(t.loginError);
     }
   }
+
+  // Cierre automático: como "Cerrar sesión", pero sin desactivar los avisos (el móvil sigue siendo tuyo)
+  async function cerrarPorInactividad() {
+    borrado.confirmar();
+    await account.deleteSession({ sessionId: "current" }).catch(() => {}); // sin red: se cierra igual en la app
+    setUsuario(null);
+    setPlanes([]);
+    setGrupos(null);
+    setError(t.sesionCaducada);
+  }
+
+  // El efecto de abajo siempre llama a la versión actual (con el idioma de ahora)
+  const cerrarPorTiempo = useRef(cerrarPorInactividad);
+  useEffect(() => {
+    cerrarPorTiempo.current = cerrarPorInactividad;
+  });
+
+  // Fuera de la app los móviles congelan los temporizadores: por eso se guarda la hora de salida y
+  // se comprueba al volver (o al abrir la app otra vez). Dentro, se mira la última actividad cada 30 s.
+  useEffect(() => {
+    if (!usuario) return;
+    const leer = () => {
+      try {
+        return Number(localStorage.getItem(CLAVE_SALIDA)) || 0;
+      } catch {
+        return 0;
+      }
+    };
+    const guardar = (v: number | null) => {
+      try {
+        if (v === null) localStorage.removeItem(CLAVE_SALIDA);
+        else localStorage.setItem(CLAVE_SALIDA, String(v));
+      } catch {}
+    };
+    let ultimaActividad = Date.now();
+    let cerrada = false;
+    const caducar = () => {
+      if (cerrada) return;
+      cerrada = true;
+      guardar(null);
+      cerrarPorTiempo.current();
+    };
+    const salida = leer();
+    if (salida && Date.now() - salida > MAX_FUERA) return caducar();
+    guardar(null);
+
+    const alCambiar = () => {
+      if (document.visibilityState === "hidden") return guardar(Date.now());
+      const s = leer();
+      if (s && Date.now() - s > MAX_FUERA) return caducar();
+      guardar(null);
+      ultimaActividad = Date.now();
+    };
+    const alIrse = () => guardar(Date.now()); // cerrar la pestaña o la app
+    const actividad = () => (ultimaActividad = Date.now());
+    const eventos = ["pointerdown", "keydown", "wheel", "touchstart", "scroll"] as const;
+    document.addEventListener("visibilitychange", alCambiar);
+    window.addEventListener("pagehide", alIrse);
+    eventos.forEach((e) => window.addEventListener(e, actividad, { passive: true, capture: true }));
+    const mirar = setInterval(() => {
+      if (document.visibilityState === "visible" && Date.now() - ultimaActividad > MAX_INACTIVO) caducar();
+    }, 30_000);
+    return () => {
+      document.removeEventListener("visibilitychange", alCambiar);
+      window.removeEventListener("pagehide", alIrse);
+      eventos.forEach((e) => window.removeEventListener(e, actividad, { capture: true }));
+      clearInterval(mirar);
+    };
+  }, [usuario]);
 
   async function salir() {
     borrado.confirmar();
@@ -270,6 +465,7 @@ export default function Home() {
     await account.deleteSession({ sessionId: "current" });
     setUsuario(null);
     setPlanes([]);
+    setGrupos(null);
   }
 
   function elegirLugar(l: Lugar) {
@@ -279,6 +475,32 @@ export default function Home() {
   }
 
   // Un link de Google Maps va al servidor (puede ser corto y hay que seguir la redirección); el resto se busca en OSM
+  // Sugerencias en tiempo real (como Google) a partir de 3 letras, 300 ms después de la última tecla.
+  // Si se sigue escribiendo, la búsqueda anterior se cancela. Los links de Google Maps van por Enter.
+  const cercaDe = planes.find((p) => p.lugar)?.lugar; // prioridad a lo cercano a vuestro último sitio
+  useEffect(() => {
+    const q = busqueda.trim();
+    if (q.length < 3 || /^https?:\/\//i.test(q)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- vaciar sugerencias al borrar el texto
+      setResultados([]);
+      return;
+    }
+    // Geoapify tarda 0,5-3 s: no se cancelan las peticiones al seguir escribiendo (así las sugerencias
+    // se van actualizando por el camino); solo se descarta una respuesta más vieja que la ya enseñada
+    const n = ++peticionLugar.current;
+    const espera = setTimeout(() => {
+      sugerirLugares(q, idioma, cercaDe)
+        .then((rs) => {
+          if (n < enseñadaLugar.current) return;
+          enseñadaLugar.current = n;
+          setResultados(rs);
+          setAvisoLugar(rs.length ? "" : t.sinResultados);
+        })
+        .catch(() => {}); // sin red: se queda lo anterior
+    }, 150);
+    return () => clearTimeout(espera);
+  }, [busqueda, idioma, cercaDe?.lat, cercaDe?.lng, t.sinResultados]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function buscarLugar() {
     const q = busqueda.trim();
     if (!q || buscando) return;
@@ -314,7 +536,7 @@ export default function Home() {
   async function anadir(e: React.FormEvent) {
     e.preventDefault();
     const t = texto.trim();
-    if (!t || !usuario) return;
+    if (!t || !usuario || !grupo) return;
     try {
       const r = await db.createRow({
         ...T,
@@ -323,8 +545,15 @@ export default function Home() {
           texto: t,
           quien: usuario.name,
           hecho: false,
+          grupo: grupo.id,
           ...(lugar && { lugar: lugar.nombre, lat: lugar.lat, lng: lugar.lng }),
         },
+        // Solo los del grupo lo ven, lo marcan, le dan like y lo borran
+        permissions: [
+          Permission.read(Role.team(grupo.id)),
+          Permission.update(Role.team(grupo.id)),
+          Permission.delete(Role.team(grupo.id)),
+        ],
       });
       setPlanes((ps) => upsert(ps, aPlan(r)));
       setTexto("");
@@ -370,7 +599,21 @@ export default function Home() {
   if (!cargado) return null;
 
   const lateral = (
-    <Lateral t={t} idioma={idioma} onIdioma={cambiarIdioma} usuario={usuario} onSalir={salir} />
+    <>
+    <Novedades t={t} version={pkg.version} />
+    <Lateral
+      t={t}
+      idioma={idioma}
+      onIdioma={cambiarIdioma}
+      usuario={usuario}
+      onSalir={salir}
+      grupos={grupos ?? []}
+      grupo={grupo}
+      onGrupo={elegirGrupo}
+      onGrupoNuevo={grupoNuevo}
+      onGrupoBorrado={grupoBorrado}
+    />
+    </>
   );
 
   if (!usuario)
@@ -378,27 +621,58 @@ export default function Home() {
       <main className="login">
         <Fondo />
         {lateral}
-        <Cabecera badge={t.badge}>{t.loginSub}</Cabecera>
+        <Instalar t={t} conPestanas={false} />
+        <Cabecera badge={t.badge}>{invitado ? t.invitado : registro ? t.registroSub : t.loginSub}</Cabecera>
         <form onSubmit={entrar}>
-          <input type="email" name="email" placeholder={t.email} aria-label={t.email} required />
+          {registro && (
+            <input type="text" name="nombre" placeholder={t.tuNombre} aria-label={t.tuNombre} autoComplete="given-name" maxLength={40} required />
+          )}
+          <input type="email" name="email" placeholder={t.email} aria-label={t.email} autoComplete="email" required />
           <input
             type="password"
             name="password"
             placeholder={t.password}
             aria-label={t.password}
+            autoComplete={registro ? "new-password" : "current-password"}
+            minLength={registro ? 8 : undefined}
             required
           />
           <button className="anadir" type="submit">
-            {t.entrar}
+            {registro ? t.crearCuenta : t.entrar}
           </button>
         </form>
+        <button
+          className="cambiar-modo"
+          onClick={() => {
+            setRegistro((r) => !r);
+            setError("");
+          }}
+        >
+          {registro ? t.yaTengoCuenta : t.noTengoCuenta}
+        </button>
         {error && <p className="vacio">{error}</p>}
       </main>
     );
 
-  const visibles = planes.filter((p) =>
+  if (!grupos) return null; // cargando tus grupos (un instante)
+
+  // Con cuenta pero sin grupo todavía: crear uno o unirse con un código
+  if (!grupo)
+    return (
+      <main className="login">
+        <Fondo />
+        {lateral}
+        <Cabecera badge={t.badge}>{t.grupoSub}</Cabecera>
+        <FormGrupo t={t} onListo={grupoNuevo} />
+        {error && <p className="vacio">{error}</p>}
+      </main>
+    );
+
+  const filtrados = planes.filter((p) =>
     filtro === "todos" ? true : filtro === "hechos" ? p.hecho : !p.hecho,
   );
+  // planes ya viene de más nuevo a más antiguo
+  const visibles = antiguosPrimero ? [...filtrados].reverse() : filtrados;
 
   const irA = (v: typeof vista) => {
     setVista(v);
@@ -408,8 +682,9 @@ export default function Home() {
   return (
     <main className="con-pestanas">
       {lateral}
+      <Instalar t={t} conPestanas />
       <div hidden={vista !== "planes"}>
-        <Cabecera badge={t.badge}>{t.hola(usuario.name)}</Cabecera>
+        <Cabecera badge={grupo.nombre} esGrupo>{t.hola(usuario.name)}</Cabecera>
 
         <form onSubmit={anadir}>
           <input
@@ -438,14 +713,17 @@ export default function Home() {
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
                 // Enter busca el sitio en vez de guardar el plan
+                // Enter: la primera sugerencia; si es un link de Google Maps (o aún no hay), se busca
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    buscarLugar();
+                    if (resultados[0] && !/^https?:\/\//i.test(busqueda.trim())) elegirLugar(resultados[0]);
+                    else buscarLugar();
                   }
                 }}
                 placeholder={t.buscarLugar}
                 aria-label={t.buscarLugar}
+                autoComplete="off" // las sugerencias son las nuestras, no el historial del navegador
                 autoFocus
               />
               <button type="button" className="pildora" onClick={buscarLugar} disabled={buscando}>
@@ -464,7 +742,7 @@ export default function Home() {
           {resultados.length > 0 && (
             <ul className="resultados">
               {resultados.map((r) => (
-                <li key={`${r.lat},${r.lng}`}>
+                <li key={`${r.lat},${r.lng},${r.nombre}`}>
                   <button type="button" onClick={() => elegirLugar(r)}>
                     <strong>{r.nombre}</strong>
                     <small>{r.detalle}</small>
@@ -490,6 +768,17 @@ export default function Home() {
               {t.filtros[f]}
             </button>
           ))}
+          <button
+            className={`ordenar${antiguosPrimero ? " antiguos" : ""}`}
+            aria-label={antiguosPrimero ? t.ordenAntiguos : t.ordenNuevos}
+            title={antiguosPrimero ? t.ordenAntiguos : t.ordenNuevos}
+            onClick={() => setAntiguosPrimero((a) => !a)}
+          >
+            {/* Flecha larga = hacia dónde van los más nuevos */}
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 4v16m0 0-4-4m4 4 4-4M16 20V8m0 0-3 3m3-3 3 3" />
+            </svg>
+          </button>
         </div>
 
         {error && <p className="vacio">{error}</p>}
@@ -497,10 +786,12 @@ export default function Home() {
         {visibles.length === 0 ? (
           <p className="vacio">{t.vacio}</p>
         ) : (
-          <ul className="planes">
-            {visibles.map((p) => (
+          // --numcards / --index: para apilarlas al hacer scroll (globals.css, "Tarjetas apiladas")
+          <ul className="planes" style={{ "--numcards": visibles.length } as React.CSSProperties}>
+            {visibles.map((p, i) => (
               <Deslizable
                 key={p.id}
+                estiloFila={{ "--index": i + 1 } as React.CSSProperties}
                 className={`tarjeta ${p.quien === usuario.name ? "yo" : "ella"} ${p.hecho ? "hecho" : ""}`}
                 derecha={{ etiqueta: t.borrarCorto, accion: () => borrar(p) }}
               >
@@ -571,14 +862,30 @@ export default function Home() {
         plan={planAbierto}
         comentarios={planAbierto ? (porPlan[planAbierto.id] ?? []) : []}
         usuario={usuario}
+        grupo={grupo.id}
         t={t}
         idioma={idioma}
         onAnadido={anadirComentario}
         onCerrar={() => setPlanAbierto(null)}
       />
 
+      {vista !== "planes" && <CabeceraCompacta />}
+
+      {/* Pestaña Mundo. Todos los planes con lugar (sin filtrar): pin si está pendiente, bandera si está hecho */}
+      <div className="vista-mundo" hidden={vista !== "mundo"}>
+        <Mundo
+          t={t}
+          lugares={planes.flatMap((p) =>
+            p.lugar ? [{ id: p.id, texto: p.texto, hecho: p.hecho, nombre: p.lugar.nombre, lat: p.lugar.lat, lng: p.lugar.lng }] : [],
+          )}
+        />
+      </div>
+
       <Chat
+        key={grupo.id} // al cambiar de grupo, chat nuevo (sin mensajes ni borrados del anterior)
         usuario={usuario}
+        grupo={grupo}
+        todosMisGrupos={grupos.map((g) => g.id)}
         t={t}
         idioma={idioma}
         visible={vista === "chat"}
@@ -591,6 +898,12 @@ export default function Home() {
             <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />
           </svg>
           {t.planes}
+        </button>
+        <button aria-current={vista === "mundo" ? "page" : undefined} onClick={() => irA("mundo")}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm-9-9h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z" />
+          </svg>
+          {t.mundoPestana}
         </button>
         <button aria-current={vista === "chat" ? "page" : undefined} onClick={() => irA("chat")}>
           <svg viewBox="0 0 24 24" aria-hidden="true">

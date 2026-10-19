@@ -1,10 +1,10 @@
-import { Client, Presences, Query, TablesDB } from "node-appwrite";
+import { Client, Presences, Query, TablesDB, Teams } from "node-appwrite";
 import webpush from "web-push";
 
 const BD = "nuestra-lista";
 
 // Se dispara al crearse un mensaje (evento tablesdb.nuestra-lista.tables.mensajes.rows.*.create)
-// y manda una notificación push a los dispositivos del otro. Nadie puede ejecutarla a mano.
+// y manda una notificación push a los dispositivos de los demás del grupo. Nadie puede ejecutarla a mano.
 export default async function avisarMensaje({ req, res, log, error }) {
   const m = req.bodyJson ?? {};
   if (!m.autorId || !m.texto) return res.json({ enviadas: 0, motivo: "no es un mensaje" });
@@ -18,10 +18,19 @@ export default async function avisarMensaje({ req, res, log, error }) {
   const presencias = new Presences(client);
   webpush.setVapidDetails(process.env.VAPID_SUBJECT, process.env.VAPID_PUBLIC, process.env.VAPID_PRIVATE);
 
+  // Solo a los del grupo del mensaje (menos quien lo escribe)
+  if (!m.grupo) return res.json({ enviadas: 0, motivo: "mensaje sin grupo" });
+  const equipos = new Teams(client);
+  const [equipo, { memberships }] = await Promise.all([
+    equipos.get({ teamId: m.grupo }),
+    equipos.listMemberships({ teamId: m.grupo, queries: [Query.limit(100)] }),
+  ]);
+  const destinatarios = memberships.map((x) => x.userId).filter((id) => id !== m.autorId);
+  if (!destinatarios.length) return res.json({ enviadas: 0 });
   const { rows } = await db.listRows({
     databaseId: BD,
     tableId: "suscripciones",
-    queries: [Query.notEqual("userId", m.autorId), Query.limit(100)],
+    queries: [Query.equal("userId", destinatarios), Query.limit(100)],
   });
 
   // Quien tiene la app abierta ya ve el mensaje en directo: no le molestamos con un aviso
@@ -30,7 +39,8 @@ export default async function avisarMensaje({ req, res, log, error }) {
   );
 
   const texto = m.texto.length > 140 ? `${m.texto.slice(0, 139)}…` : m.texto;
-  const aviso = JSON.stringify({ title: m.autor, body: texto, url: "/?vista=chat" });
+  // Con varios grupos, el título dice de cuál es; al tocarlo se abre el chat de ese grupo
+  const aviso = JSON.stringify({ title: `${m.autor} · ${equipo.name}`, body: texto, url: `/?vista=chat&grupo=${m.grupo}` });
 
   let enviadas = 0;
   await Promise.all(

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { BD, db, presencias, realtime } from "./appwrite";
 import { useBorradoDiferido } from "./borrado";
 import Deslizable from "./Deslizable";
+import type { Grupo } from "./grupos";
 import type { Idioma, Textos } from "./i18n";
 
 type Cita = { id: string; autor: string; texto: string };
@@ -24,11 +25,25 @@ const aMensaje = (r: Models.DefaultRow): Mensaje => ({
 
 const ordenar = (ms: Mensaje[]) => [...ms].sort((a, b) => a.creado.localeCompare(b.creado));
 
+// En las burbujas, iconos en vez de texto: caben aunque el mensaje sea de una palabra
+const ICONO_BORRAR = (
+  <svg className="icono-accion" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+  </svg>
+);
+const ICONO_RESPONDER = (
+  <svg className="icono-accion" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11Z" />
+  </svg>
+);
+
 const upsert = (ms: Mensaje[], m: Mensaje) =>
   ms.some((x) => x.id === m.id) ? ms.map((x) => (x.id === m.id ? m : x)) : [...ms, m];
 
 type Props = {
   usuario: Models.User;
+  grupo: Grupo; // el chat es el de este grupo
+  todosMisGrupos: string[]; // para que tu presencia la vean todos tus grupos
   t: Textos;
   idioma: Idioma;
   visible: boolean;
@@ -36,7 +51,7 @@ type Props = {
 };
 
 // Sigue montado aunque estés en Planes (solo se oculta): así llegan los mensajes y se cuentan los no leídos
-export default function Chat({ usuario, t, idioma, visible, onNoLeido }: Props) {
+export default function Chat({ usuario, grupo, todosMisGrupos, t, idioma, visible, onNoLeido }: Props) {
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [texto, setTexto] = useState("");
   const [error, setError] = useState("");
@@ -59,7 +74,7 @@ export default function Chat({ usuario, t, idioma, visible, onNoLeido }: Props) 
   useEffect(() => {
     const cargar = () =>
       db
-        .listRows({ ...M, queries: [Query.orderDesc("$createdAt"), Query.limit(100)] })
+        .listRows({ ...M, queries: [Query.equal("grupo", grupo.id), Query.orderDesc("$createdAt"), Query.limit(100)] })
         .then((r) => setMensajes(r.rows.map(aMensaje).reverse().filter((m) => !esPendiente(m.id))))
         .catch((e) => setError(e.message));
     cargar();
@@ -67,6 +82,7 @@ export default function Chat({ usuario, t, idioma, visible, onNoLeido }: Props) 
     const sub = realtime.subscribe(
       Channel.tablesdb(BD).table(M.tableId).row(),
       (ev: RealtimeResponseEvent<Models.DefaultRow>) => {
+        if (ev.payload.grupo !== grupo.id) return; // de otro de tus grupos
         const m = aMensaje(ev.payload);
         if (ev.events.some((e) => e.endsWith(".delete"))) return setMensajes((ms) => ms.filter((x) => x.id !== m.id));
         if (esPendiente(m.id)) return;
@@ -80,7 +96,7 @@ export default function Chat({ usuario, t, idioma, visible, onNoLeido }: Props) 
     realtime.upsertPresence({
       presenceId: usuario.$id,
       status: "online",
-      permissions: [Permission.read(Role.users())],
+      permissions: todosMisGrupos.map((g) => Permission.read(Role.team(g))),
       metadata: { nombre: usuario.name },
     });
     const leerPresencias = () =>
@@ -106,7 +122,7 @@ export default function Chat({ usuario, t, idioma, visible, onNoLeido }: Props) 
       sub.then((s) => s.unsubscribe());
       subPresencias.then((s) => s.unsubscribe());
     };
-  }, [usuario, esPendiente]);
+  }, [usuario, grupo.id, todosMisGrupos.join(), esPendiente]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Siempre mostrando lo último (la caja de escribir es fija: se baja la página entera)
   useEffect(() => {
@@ -140,10 +156,15 @@ export default function Chat({ usuario, t, idioma, visible, onNoLeido }: Props) 
           texto: tx,
           autor: usuario.name,
           autorId: usuario.$id,
+          grupo: grupo.id,
           ...(cita && { respondeA: cita.id, respondeAutor: cita.autor, respondeTexto: cita.texto.slice(0, 200) }),
         },
-        // Leer: todos (permiso de la tabla). Editar y borrar: solo quien lo escribió
-        permissions: [Permission.update(Role.user(usuario.$id)), Permission.delete(Role.user(usuario.$id))],
+        // Leer: los del grupo. Editar y borrar: solo quien lo escribió
+        permissions: [
+          Permission.read(Role.team(grupo.id)),
+          Permission.update(Role.user(usuario.$id)),
+          Permission.delete(Role.user(usuario.$id)),
+        ],
       });
       setMensajes((ms) => upsert(ms, aMensaje(r)));
     } catch (err) {
@@ -160,7 +181,8 @@ export default function Chat({ usuario, t, idioma, visible, onNoLeido }: Props) 
       d.toDateString() === hoy ? { timeStyle: "short" } : { dateStyle: "short", timeStyle: "short" };
     return new Intl.DateTimeFormat(idioma, opciones).format(d);
   };
-  const otros = Object.entries(conectados).filter(([id]) => id !== usuario.$id);
+  // Solo los de este grupo (tu presencia la ven todos tus grupos, la suya también)
+  const otros = Object.entries(conectados).filter(([id]) => id !== usuario.$id && grupo.miembros.some((m) => m.id === id));
 
   return (
     <section className={`chat${respondiendo ? " respondiendo" : ""}`} hidden={!visible}>
@@ -192,8 +214,8 @@ export default function Chat({ usuario, t, idioma, visible, onNoLeido }: Props) 
                 claseFila={mio ? "mio" : "suyo"}
                 className={`burbuja ${mio ? "mio" : "suyo"}`}
                 // Borrar solo los tuyos (Appwrite tampoco te dejaría con los de ella)
-                derecha={mio ? { etiqueta: t.borrarCorto, accion: () => borrar(m) } : undefined}
-                izquierda={{ etiqueta: t.responder, accion: () => responder(m) }}
+                derecha={mio ? { etiqueta: ICONO_BORRAR, accion: () => borrar(m) } : undefined}
+                izquierda={{ etiqueta: ICONO_RESPONDER, accion: () => responder(m) }}
               >
                 {m.respondeA && (
                   <blockquote className="cita">
