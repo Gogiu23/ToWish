@@ -7,7 +7,8 @@ const MAX_GRUPOS = 10; // por persona: las altas son abiertas, que nadie cree gr
 const LETRAS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin 0/O ni 1/I: se dictan sin líos
 const nuevoCodigo = () => Array.from({ length: 6 }, () => LETRAS[randomInt(LETRAS.length)]).join("");
 
-// La ejecuta la app (usuarios con sesión): crear un grupo, unirse a uno con su código o borrarlo.
+// La ejecuta la app (usuarios con sesión): crear un grupo, unirse a uno con su código, borrarlo
+// o eliminar la propia cuenta.
 // Va en el servidor para que el límite de 3 personas no se pueda saltar desde el navegador.
 export default async function grupos({ req, res, error }) {
   const userId = req.headers["x-appwrite-user-id"];
@@ -19,6 +20,14 @@ export default async function grupos({ req, res, error }) {
   const equipos = new Teams(client);
   const db = new TablesDB(client);
   const { accion, nombre, codigo, grupo } = req.bodyJson ?? {};
+
+  // Borra el grupo con todo lo suyo (planes, mensajes, comentarios), su código y el equipo
+  async function borrarGrupoCompleto(teamId) {
+    for (const tableId of ["planes", "mensajes", "comentarios"])
+      await db.deleteRows({ databaseId: BD, tableId, queries: [Query.equal("grupo", teamId)] });
+    await db.deleteRow({ databaseId: BD, tableId: "grupos", rowId: teamId }).catch(() => {});
+    await equipos.delete({ teamId });
+  }
 
   try {
     if (accion === "crear") {
@@ -68,11 +77,30 @@ export default async function grupos({ req, res, error }) {
       const teamId = String(grupo ?? "");
       const { memberships } = await equipos.listMemberships({ teamId, queries: [Query.equal("userId", userId)] });
       if (!memberships[0]?.roles.includes("owner")) return res.json({ error: "no-eres-admin" }, 403);
-      for (const tableId of ["planes", "mensajes", "comentarios"])
-        await db.deleteRows({ databaseId: BD, tableId, queries: [Query.equal("grupo", teamId)] });
-      await db.deleteRow({ databaseId: BD, tableId: "grupos", rowId: teamId }).catch(() => {});
-      await equipos.delete({ teamId });
+      await borrarGrupoCompleto(teamId);
       return res.json({ grupo: teamId });
+    }
+
+    if (accion === "eliminar-cuenta") {
+      const usuarios = new Users(client);
+      const { memberships } = await usuarios.listMemberships({ userId, queries: [Query.limit(100)] });
+      for (const m of memberships) {
+        const { memberships: miembros } = await equipos.listMemberships({ teamId: m.teamId, queries: [Query.limit(100)] });
+        const resto = miembros.filter((o) => o.userId !== userId);
+        if (!resto.length) {
+          await borrarGrupoCompleto(m.teamId); // eras la única persona: el grupo no tiene sentido
+          continue;
+        }
+        // El grupo sigue: si eras quien lo creó y no hay otro admin, pasa a otro miembro
+        if (m.roles.includes("owner") && !resto.some((o) => o.roles.includes("owner")))
+          await equipos.updateMembership({ teamId: m.teamId, membershipId: resto[0].$id, roles: ["owner"] });
+        await equipos.deleteMembership({ teamId: m.teamId, membershipId: m.$id });
+      }
+      // Sus mensajes, comentarios y avisos. Los planes se quedan: son del grupo
+      for (const [tableId, columna] of [["mensajes", "autorId"], ["comentarios", "autorId"], ["suscripciones", "userId"]])
+        await db.deleteRows({ databaseId: BD, tableId, queries: [Query.equal(columna, userId)] });
+      await usuarios.delete({ userId }); // cierra también todas sus sesiones
+      return res.json({ ok: true });
     }
 
     return res.json({ error: "accion-no-valida" }, 400);

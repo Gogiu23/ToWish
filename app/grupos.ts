@@ -1,4 +1,4 @@
-import { BD, db, equipos, funciones } from "./appwrite";
+import { account, BD, db, equipos, funciones } from "./appwrite";
 
 export const MAX_MIEMBROS = 3; // el límite de verdad lo pone la función "grupos" en el servidor
 
@@ -38,6 +38,23 @@ export const unirseAGrupo = (codigo: string) => llamar({ accion: "unirse", codig
 /** Borra el grupo con todos sus planes, mensajes y comentarios (solo quien lo creó). */
 export const borrarGrupo = (grupo: string) => llamar({ accion: "borrar", grupo });
 
+/** Elimina tu cuenta (y con ella, tus mensajes, comentarios y avisos). No se puede deshacer. */
+export async function eliminarCuenta() {
+  let ok = false;
+  try {
+    const e = await funciones.createExecution({ functionId: "grupos", body: JSON.stringify({ accion: "eliminar-cuenta" }) });
+    ok = JSON.parse(e.responseBody).ok === true;
+  } catch {}
+  if (ok) return;
+  // Al borrarse la cuenta se borra también la sesión con la que se hizo la llamada: la respuesta puede
+  // perderse o llegar como error aunque haya ido bien. Si la sesión ya no existe (401), se borró.
+  const borrada = await account.get().then(
+    () => false,
+    (e: { code?: number }) => e.code === 401,
+  );
+  if (!borrada) throw new Error("error");
+}
+
 /** Código de invitación (solo lo pueden leer los del grupo). */
 export const codigoDeGrupo = (id: string) =>
   db.getRow({ databaseId: BD, tableId: "grupos", rowId: id }).then((r) => String(r.codigo));
@@ -64,6 +81,7 @@ function guardar(clave: string, valor: string | null) {
 }
 
 export const grupoGuardado = () => leer(CLAVE_GRUPO);
+export const olvidarGrupo = () => guardar(CLAVE_GRUPO, null);
 export const guardarGrupo = (id: string) => guardar(CLAVE_GRUPO, id);
 export const invitacionPendiente = () => leer(CLAVE_INVITACION);
 export const guardarInvitacion = (codigo: string | null) => guardar(CLAVE_INVITACION, codigo);

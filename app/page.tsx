@@ -15,6 +15,7 @@ import {
   guardarInvitacion,
   invitacionPendiente,
   misGrupos,
+  olvidarGrupo,
   unirseAGrupo,
   type Grupo,
 } from "./grupos";
@@ -333,6 +334,16 @@ export default function Home() {
     setGrupos(await misGrupos().catch(() => []));
   }
 
+  // La cuenta ya no existe: de vuelta a la pantalla de entrada
+  function cuentaEliminada() {
+    olvidarGrupo();
+    setUsuario(null);
+    setPlanes([]);
+    setGrupos(null);
+    setGrupoId(null);
+    setError(t.cuentaEliminada);
+  }
+
   function cambiarIdioma(i: Idioma) {
     setIdioma(i);
     try {
@@ -385,8 +396,11 @@ export default function Home() {
     try {
       await account.createEmailPasswordSession({ email, password });
       setUsuario(await account.get());
-    } catch {
-      setError(t.loginError);
+    } catch (err) {
+      // Solo el 401 es de verdad "email o contraseña mal"; antes cualquier fallo salía así
+      const { code, type } = err as { code?: number; type?: string };
+      if (type === "user_session_already_exists") return setUsuario(await account.get().catch(() => null));
+      setError(code === 429 ? t.demasiadosIntentos : code === 401 ? t.loginError : t.errorConexion);
     }
   }
 
@@ -612,6 +626,7 @@ export default function Home() {
       onGrupo={elegirGrupo}
       onGrupoNuevo={grupoNuevo}
       onGrupoBorrado={grupoBorrado}
+      onCuentaEliminada={cuentaEliminada}
     />
     </>
   );

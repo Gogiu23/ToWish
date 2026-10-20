@@ -6,7 +6,7 @@ import pkg from "../package.json";
 import { account } from "./appwrite";
 import { cerrarConAnimacion } from "./dialogo";
 import FormGrupo from "./FormGrupo";
-import { borrarGrupo, codigoDeGrupo, enlaceInvitacion, MAX_MIEMBROS, type Grupo } from "./grupos";
+import { borrarGrupo, codigoDeGrupo, eliminarCuenta, enlaceInvitacion, MAX_MIEMBROS, type Grupo } from "./grupos";
 import { TEXTOS, type Idioma, type Textos } from "./i18n";
 import {
   activarNotificaciones,
@@ -26,9 +26,10 @@ type Props = {
   onGrupo: (id: string) => void;
   onGrupoNuevo: (id: string) => void;
   onGrupoBorrado: () => void;
+  onCuentaEliminada: () => void;
 };
 
-export default function Lateral({ t, idioma, onIdioma, usuario, onSalir, grupos, grupo, onGrupo, onGrupoNuevo, onGrupoBorrado }: Props) {
+export default function Lateral({ t, idioma, onIdioma, usuario, onSalir, grupos, grupo, onGrupo, onGrupoNuevo, onGrupoBorrado, onCuentaEliminada }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   // Cierre animado: se desliza hacia fuera y, al acabar la animación, se cierra de verdad
   const cerrar = () => cerrarConAnimacion(ref.current);
@@ -68,6 +69,23 @@ export default function Lateral({ t, idioma, onIdioma, usuario, onSalir, grupos,
   const [codigo, setCodigo] = useState<string | null>(null);
   const [avisoInvitar, setAvisoInvitar] = useState("");
   const [copiado, setCopiado] = useState(false);
+  const [confirmarCuenta, setConfirmarCuenta] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const [errorCuenta, setErrorCuenta] = useState("");
+
+  async function eliminar() {
+    setEliminando(true);
+    setErrorCuenta("");
+    try {
+      await desactivarNotificaciones().catch(() => {}); // este móvil deja de recibir avisos
+      await eliminarCuenta();
+      cerrar();
+      onCuentaEliminada();
+    } catch {
+      setErrorCuenta(t.errorGrupo);
+      setEliminando(false);
+    }
+  }
   const [confirmarBorrado, setConfirmarBorrado] = useState(false);
   const [borrando, setBorrando] = useState(false);
   const [errorBorrado, setErrorBorrado] = useState("");
@@ -192,6 +210,29 @@ export default function Lateral({ t, idioma, onIdioma, usuario, onSalir, grupos,
                 {t.salir}
               </button>
             </div>
+
+            {confirmarCuenta ? (
+              <div className="confirmar-borrado" role="alert">
+                <p>{t.confirmarEliminarCuenta}</p>
+                <div className="botones-cuenta">
+                  <button className="pildora" onClick={() => setConfirmarCuenta(false)} disabled={eliminando}>
+                    {t.cancelar}
+                  </button>
+                  <button className="anadir peligro" onClick={eliminar} disabled={eliminando}>
+                    {eliminando ? t.borrandoGrupo : t.siBorrar}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button className="pildora borrar-grupo" onClick={() => setConfirmarCuenta(true)}>
+                {t.eliminarCuenta}
+              </button>
+            )}
+            {errorCuenta && (
+              <p className="aviso-clave" role="alert">
+                {errorCuenta}
+              </p>
+            )}
 
             {cambiarClave && (
               <form className="cambiar-clave" onSubmit={guardarClave}>
