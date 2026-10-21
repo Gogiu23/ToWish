@@ -4,6 +4,10 @@ import { Client, ID, Permission, Query, Role, TablesDB, Teams, Users } from "nod
 const BD = "nuestra-lista";
 const MAX_MIEMBROS = 3;
 const MAX_GRUPOS = 10; // por persona: las altas son abiertas, que nadie cree grupos sin fin
+// Códigos de invitación: 6 letras se pueden adivinar a base de probar. Se cuentan los fallos de cada cuenta en una
+// tabla que solo toca el servidor (en el navegador, o en las "prefs" de la cuenta, cada cual se los podría borrar)
+const MAX_FALLOS = 5;
+const VENTANA_FALLOS_MS = 15 * 60 * 1000;
 const LETRAS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin 0/O ni 1/I: se dictan sin líos
 const nuevoCodigo = () => Array.from({ length: 6 }, () => LETRAS[randomInt(LETRAS.length)]).join("");
 
@@ -23,7 +27,7 @@ export default async function grupos({ req, res, error }) {
 
   // Borra el grupo con todo lo suyo (planes, mensajes, comentarios), su código y el equipo
   async function borrarGrupoCompleto(teamId) {
-    for (const tableId of ["planes", "mensajes", "comentarios"])
+    for (const tableId of ["planes", "mensajes", "comentarios", "reacciones"])
       await db.deleteRows({ databaseId: BD, tableId, queries: [Query.equal("grupo", teamId)] });
     await db.deleteRow({ databaseId: BD, tableId: "grupos", rowId: teamId }).catch(() => {});
     await equipos.delete({ teamId });
@@ -57,12 +61,26 @@ export default async function grupos({ req, res, error }) {
 
     if (accion === "unirse") {
       const c = String(codigo ?? "").trim().toUpperCase();
+      const desde = new Date(Date.now() - VENTANA_FALLOS_MS).toISOString();
+      const recientes = await db.listRows({
+        databaseId: BD,
+        tableId: "intentos",
+        queries: [Query.equal("userId", userId), Query.greaterThan("$createdAt", desde), Query.limit(MAX_FALLOS)],
+      });
+      if (recientes.total >= MAX_FALLOS) return res.json({ error: "demasiados-intentos" }, 429);
       const { rows } = await db.listRows({
         databaseId: BD,
         tableId: "grupos",
         queries: [Query.equal("codigo", c), Query.limit(1)],
       });
-      if (!rows.length) return res.json({ error: "codigo-no-valido" }, 404);
+      if (!rows.length) {
+        await db.createRow({ databaseId: BD, tableId: "intentos", rowId: ID.unique(), data: { userId } });
+        // De paso se barren los fallos antiguos de esta cuenta
+        await db
+          .deleteRows({ databaseId: BD, tableId: "intentos", queries: [Query.equal("userId", userId), Query.lessThan("$createdAt", desde)] })
+          .catch(() => {});
+        return res.json({ error: "codigo-no-valido" }, 404);
+      }
       const teamId = rows[0].$id;
       const { memberships } = await equipos.listMemberships({ teamId, queries: [Query.limit(100)] });
       if (memberships.some((m) => m.userId === userId)) return res.json({ grupo: teamId }); // ya estaba
@@ -96,8 +114,8 @@ export default async function grupos({ req, res, error }) {
           await equipos.updateMembership({ teamId: m.teamId, membershipId: resto[0].$id, roles: ["owner"] });
         await equipos.deleteMembership({ teamId: m.teamId, membershipId: m.$id });
       }
-      // Sus mensajes, comentarios y avisos. Los planes se quedan: son del grupo
-      for (const [tableId, columna] of [["mensajes", "autorId"], ["comentarios", "autorId"], ["suscripciones", "userId"]])
+      // Sus mensajes, comentarios, reacciones y avisos. Los planes se quedan: son del grupo
+      for (const [tableId, columna] of [["mensajes", "autorId"], ["comentarios", "autorId"], ["reacciones", "userId"], ["suscripciones", "userId"], ["intentos", "userId"]])
         await db.deleteRows({ databaseId: BD, tableId, queries: [Query.equal(columna, userId)] });
       await usuarios.delete({ userId }); // cierra también todas sus sesiones
       return res.json({ ok: true });

@@ -7,7 +7,12 @@ import { preconnect } from "react-dom";
 import { useBorradoDiferido } from "./borrado";
 import Chat from "./Chat";
 import Comentarios, { useComentarios, type Comentario } from "./Comentarios";
+import AvisoNotificaciones from "./AvisoNotificaciones";
 import Deslizable from "./Deslizable";
+import Calendario from "./Calendario";
+import CampoFecha, { ICONO_CALENDARIO } from "./CampoFecha";
+import EditarPlan from "./EditarPlan";
+import { fechaCorta, hoyISO } from "./fechas";
 import FormGrupo, { textoErrorGrupo } from "./FormGrupo";
 import {
   grupoGuardado,
@@ -26,10 +31,21 @@ import Mundo from "./Mundo";
 import Novedades from "./Novedades";
 import pkg from "../package.json";
 import { desactivarNotificaciones, registrarServiceWorker } from "./notificaciones";
-import { buscarLugares, sugerirLugares, teselas, urlRuta, type Lugar, type ResultadoLugar } from "./lugar";
+import { textoErrorClave } from "./claves";
+import { PIN, teselas, urlRuta, type Lugar } from "./lugar";
+import SelectorLugar from "./SelectorLugar";
 import { formatearTiempo } from "./tiempo";
 
-type Plan = { id: string; texto: string; quien: string; hecho: boolean; creado: string; likes: string[]; lugar?: Lugar };
+type Plan = {
+  id: string;
+  texto: string;
+  quien: string;
+  hecho: boolean;
+  creado: string;
+  likes: string[];
+  lugar?: Lugar;
+  fecha?: string; // día en que se quiere hacer (AAAA-MM-DD)
+};
 type Filtro = "todos" | "pendientes" | "hechos";
 
 const T = { databaseId: BD, tableId: "planes" };
@@ -42,6 +58,7 @@ const aPlan = (r: Models.DefaultRow): Plan => ({
   creado: r.$createdAt,
   likes: [...new Set<string>(r.likes ?? [])],
   lugar: r.lat != null && r.lng != null ? { nombre: r.lugar ?? "", lat: r.lat, lng: r.lng } : undefined,
+  fecha: r.fecha || undefined,
 });
 
 const ordenar = (ps: Plan[]) => [...ps].sort((a, b) => b.creado.localeCompare(a.creado));
@@ -128,7 +145,6 @@ function Fondo() {
   );
 }
 
-const PIN = "M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7Zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z";
 const LADO_MAPA = 72;
 
 // Cuadradito con el mapa (teselas de OpenStreetMap) y el pin en el centro; abre la ruta en Google Maps
@@ -209,8 +225,6 @@ function CabeceraCompacta() {
 
 export default function Home() {
   const [usuario, setUsuario] = useState<Models.User | null>(null);
-  const peticionLugar = useRef(0); // número de la última búsqueda de sugerencias lanzada
-  const enseñadaLugar = useRef(0); // y de la que se está enseñando
   preconnect("https://api.geoapify.com"); // la primera sugerencia se ahorra abrir la conexión
   const [cargado, setCargado] = useState(false);
   const [grupos, setGrupos] = useState<Grupo[] | null>(null); // null: aún cargando
@@ -223,12 +237,11 @@ export default function Home() {
   const [antiguosPrimero, setAntiguosPrimero] = useState(false);
   const [error, setError] = useState("");
   const [idioma, setIdioma] = useState<Idioma>("es");
-  const [conLugar, setConLugar] = useState(false);
-  const [busqueda, setBusqueda] = useState("");
-  const [resultados, setResultados] = useState<ResultadoLugar[]>([]);
   const [lugar, setLugar] = useState<Lugar | null>(null);
-  const [buscando, setBuscando] = useState(false);
-  const [avisoLugar, setAvisoLugar] = useState("");
+  const [fecha, setFecha] = useState(""); // día previsto del plan nuevo ("" = sin fecha)
+  const [instalarVisible, setInstalarVisible] = useState(false); // el cartel de instalar está a la vista
+  const [claveLugar, setClaveLugar] = useState(0); // al cambiarla, el selector de lugar del formulario empieza de cero
+  const [planEditando, setPlanEditando] = useState<Plan | null>(null);
   // Borrado diferido: el plan desaparece ya, pero solo se borra en Appwrite si no se deshace en 5 s
   const borrado = useBorradoDiferido<Plan>({
     borrar: (p) => db.deleteRow({ ...T, rowId: p.id }),
@@ -236,14 +249,14 @@ export default function Home() {
     onError: (e) => setError(e.message),
   });
   const { esPendiente } = borrado;
-  const [vista, setVista] = useState<"planes" | "mundo" | "chat">("planes");
+  const [vista, setVista] = useState<"planes" | "mundo" | "calendario" | "chat">("planes");
   const [noLeidos, setNoLeidos] = useState(0);
   const [planAbierto, setPlanAbierto] = useState<Plan | null>(null);
   // El grupo que se ve (si el guardado ya no existe, el primero)
   const grupo = grupos?.find((g) => g.id === grupoId) ?? grupos?.[0] ?? null;
-  const { comentarios, anadir: anadirComentario } = useComentarios(usuario ? (grupo?.id ?? null) : null);
+  const datosComentarios = useComentarios(usuario ? (grupo?.id ?? null) : null);
   const porPlan: Record<string, Comentario[]> = {};
-  for (const c of comentarios) (porPlan[c.planId] ??= []).push(c);
+  for (const c of datosComentarios.comentarios) (porPlan[c.planId] ??= []).push(c);
   const t = TEXTOS[idioma];
 
   useEffect(() => {
@@ -389,8 +402,9 @@ export default function Home() {
       try {
         await account.create({ userId: ID.unique(), email, password, name: String(f.get("nombre")).trim() });
       } catch (err) {
-        // 409: ya hay una cuenta con ese email
-        return setError((err as { code?: number }).code === 409 ? t.emailEnUso : t.errorRegistro);
+        // 409: ya hay una cuenta con ese email; 429: demasiados intentos; si no, se explica qué le pasa a la contraseña
+        const { code } = err as { code?: number };
+        return setError(code === 409 ? t.emailEnUso : code === 429 ? t.demasiadosIntentos : textoErrorClave(t, err, t.errorRegistro));
       }
     }
     try {
@@ -482,70 +496,8 @@ export default function Home() {
     setGrupos(null);
   }
 
-  function elegirLugar(l: Lugar) {
-    setLugar({ nombre: l.nombre.slice(0, 200), lat: l.lat, lng: l.lng });
-    setResultados([]);
-    setBusqueda("");
-  }
-
-  // Un link de Google Maps va al servidor (puede ser corto y hay que seguir la redirección); el resto se busca en OSM
-  // Sugerencias en tiempo real (como Google) a partir de 3 letras, 300 ms después de la última tecla.
-  // Si se sigue escribiendo, la búsqueda anterior se cancela. Los links de Google Maps van por Enter.
-  const cercaDe = planes.find((p) => p.lugar)?.lugar; // prioridad a lo cercano a vuestro último sitio
-  useEffect(() => {
-    const q = busqueda.trim();
-    if (q.length < 3 || /^https?:\/\//i.test(q)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- vaciar sugerencias al borrar el texto
-      setResultados([]);
-      return;
-    }
-    // Geoapify tarda 0,5-3 s: no se cancelan las peticiones al seguir escribiendo (así las sugerencias
-    // se van actualizando por el camino); solo se descarta una respuesta más vieja que la ya enseñada
-    const n = ++peticionLugar.current;
-    const espera = setTimeout(() => {
-      sugerirLugares(q, idioma, cercaDe)
-        .then((rs) => {
-          if (n < enseñadaLugar.current) return;
-          enseñadaLugar.current = n;
-          setResultados(rs);
-          setAvisoLugar(rs.length ? "" : t.sinResultados);
-        })
-        .catch(() => {}); // sin red: se queda lo anterior
-    }, 150);
-    return () => clearTimeout(espera);
-  }, [busqueda, idioma, cercaDe?.lat, cercaDe?.lng, t.sinResultados]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function buscarLugar() {
-    const q = busqueda.trim();
-    if (!q || buscando) return;
-    setBuscando(true);
-    setAvisoLugar("");
-    setResultados([]);
-    try {
-      if (/^https?:\/\//i.test(q)) {
-        const r = await fetch(`/api/lugar?url=${encodeURIComponent(q)}&idioma=${idioma}`);
-        const d = await r.json();
-        if (r.ok) elegirLugar(d);
-        else setAvisoLugar(d.error === "sin-resultados" ? t.sinResultados : t.linkNoValido);
-      } else {
-        const rs = await buscarLugares(q, idioma);
-        if (rs.length) setResultados(rs);
-        else setAvisoLugar(t.sinResultados);
-      }
-    } catch {
-      setAvisoLugar(t.sinResultados);
-    } finally {
-      setBuscando(false);
-    }
-  }
-
-  function quitarLugar() {
-    setLugar(null);
-    setConLugar(false);
-    setResultados([]);
-    setBusqueda("");
-    setAvisoLugar("");
-  }
+  // Prioridad a lo cercano a vuestro último sitio al buscar lugares
+  const cercaDe = planes.find((p) => p.lugar)?.lugar;
 
   async function anadir(e: React.FormEvent) {
     e.preventDefault();
@@ -561,6 +513,7 @@ export default function Home() {
           hecho: false,
           grupo: grupo.id,
           ...(lugar && { lugar: lugar.nombre, lat: lugar.lat, lng: lugar.lng }),
+          ...(fecha && { fecha }),
         },
         // Solo los del grupo lo ven, lo marcan, le dan like y lo borran
         permissions: [
@@ -571,10 +524,28 @@ export default function Home() {
       });
       setPlanes((ps) => upsert(ps, aPlan(r)));
       setTexto("");
-      quitarLugar();
+      setLugar(null);
+      setFecha("");
+      setClaveLugar((k) => k + 1);
     } catch (e) {
       setError((e as Error).message);
     }
+  }
+
+  // Cambia el texto y/o el lugar de un plan (quitar el lugar = dejar lugar, lat y lng en null)
+  async function guardarEdicion(id: string, texto: string, lugar: Lugar | null, fecha: string) {
+    const r = await db.updateRow({
+      ...T,
+      rowId: id,
+      data: { texto, lugar: lugar?.nombre ?? null, lat: lugar?.lat ?? null, lng: lugar?.lng ?? null, fecha: fecha || null },
+    });
+    setPlanes((ps) => upsert(ps, aPlan(r)));
+  }
+
+  // Desde el calendario: poner un plan en un día o quitárselo
+  async function asignarFecha(id: string, fecha: string | null) {
+    const r = await db.updateRow({ ...T, rowId: id, data: { fecha } });
+    setPlanes((ps) => upsert(ps, aPlan(r)));
   }
 
   async function alternar(p: Plan) {
@@ -697,7 +668,8 @@ export default function Home() {
   return (
     <main className="con-pestanas">
       {lateral}
-      <Instalar t={t} conPestanas />
+      <Instalar t={t} conPestanas onMostrado={setInstalarVisible} />
+      <AvisoNotificaciones t={t} usuario={usuario} esperar={instalarVisible} />
       <div hidden={vista !== "planes"}>
         <Cabecera badge={grupo.nombre} esGrupo>{t.hola(usuario.name)}</Cabecera>
 
@@ -711,66 +683,8 @@ export default function Home() {
             maxLength={500}
           />
 
-          {lugar ? (
-            <div className="lugar-elegido">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d={PIN} />
-              </svg>
-              <span>{lugar.nombre}</span>
-              <button type="button" aria-label={t.quitarLugar} onClick={quitarLugar}>
-                ✕
-              </button>
-            </div>
-          ) : conLugar ? (
-            <div className="buscador">
-              <input
-                type="search"
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                // Enter busca el sitio en vez de guardar el plan
-                // Enter: la primera sugerencia; si es un link de Google Maps (o aún no hay), se busca
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    if (resultados[0] && !/^https?:\/\//i.test(busqueda.trim())) elegirLugar(resultados[0]);
-                    else buscarLugar();
-                  }
-                }}
-                placeholder={t.buscarLugar}
-                aria-label={t.buscarLugar}
-                autoComplete="off" // las sugerencias son las nuestras, no el historial del navegador
-                autoFocus
-              />
-              <button type="button" className="pildora" onClick={buscarLugar} disabled={buscando}>
-                {buscando ? t.buscando : t.buscar}
-              </button>
-            </div>
-          ) : (
-            <button type="button" className="poner-lugar" onClick={() => setConLugar(true)}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d={PIN} />
-              </svg>
-              {t.anadirLugar}
-            </button>
-          )}
-
-          {resultados.length > 0 && (
-            <ul className="resultados">
-              {resultados.map((r) => (
-                <li key={`${r.lat},${r.lng},${r.nombre}`}>
-                  <button type="button" onClick={() => elegirLugar(r)}>
-                    <strong>{r.nombre}</strong>
-                    <small>{r.detalle}</small>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {avisoLugar && (
-            <p className="aviso" role="status">
-              {avisoLugar}
-            </p>
-          )}
+          <SelectorLugar key={claveLugar} lugar={lugar} onLugar={setLugar} cercaDe={cercaDe} idioma={idioma} t={t} />
+          <CampoFecha valor={fecha} onCambio={setFecha} t={t} idioma={idioma} />
 
           <button className="anadir" type="submit">
             {t.anadir}
@@ -825,6 +739,17 @@ export default function Home() {
                     <time className="fecha" dateTime={p.creado}>
                       {new Intl.DateTimeFormat(idioma, { dateStyle: "medium" }).format(new Date(p.creado))}
                     </time>
+                    {p.fecha && (
+                      <small
+                        className={`fecha-plan${!p.hecho && p.fecha < hoyISO() ? " atrasado" : ""}${p.fecha === hoyISO() ? " hoy" : ""}`}
+                        title={t.fechaPrevista}
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d={ICONO_CALENDARIO} />
+                        </svg>
+                        {p.fecha === hoyISO() ? t.hoy : fechaCorta(p.fecha, idioma)}
+                      </small>
+                    )}
                     {p.lugar && (
                       <small className="lugar-texto">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -856,6 +781,11 @@ export default function Home() {
                       </svg>
                       {porPlan[p.id]?.length > 0 && <span>{porPlan[p.id].length}</span>}
                     </button>
+                    <button className="accion" aria-label={t.editarPlan} title={t.editarPlan} onClick={() => setPlanEditando(p)}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Zm9.5-13.5 4 4" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
                 {p.lugar && <MiniMapa lugar={p.lugar} etiqueta={t.comoLlegar(p.lugar.nombre)} />}
@@ -873,14 +803,22 @@ export default function Home() {
         )}
       </div>
 
+      <EditarPlan
+        plan={planEditando}
+        cercaDe={cercaDe}
+        idioma={idioma}
+        t={t}
+        onGuardar={guardarEdicion}
+        onCerrar={() => setPlanEditando(null)}
+      />
+
       <Comentarios
         plan={planAbierto}
-        comentarios={planAbierto ? (porPlan[planAbierto.id] ?? []) : []}
+        datos={datosComentarios}
         usuario={usuario}
         grupo={grupo.id}
         t={t}
         idioma={idioma}
-        onAnadido={anadirComentario}
         onCerrar={() => setPlanAbierto(null)}
       />
 
@@ -894,6 +832,11 @@ export default function Home() {
             p.lugar ? [{ id: p.id, texto: p.texto, hecho: p.hecho, nombre: p.lugar.nombre, lat: p.lugar.lat, lng: p.lugar.lng }] : [],
           )}
         />
+      </div>
+
+      {/* Pestaña Calendario: los planes con fecha, por días */}
+      <div className="vista-calendario" hidden={vista !== "calendario"}>
+        <Calendario planes={planes} idioma={idioma} t={t} onFecha={asignarFecha} />
       </div>
 
       <Chat
@@ -919,6 +862,12 @@ export default function Home() {
             <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm-9-9h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z" />
           </svg>
           {t.mundoPestana}
+        </button>
+        <button aria-current={vista === "calendario" ? "page" : undefined} onClick={() => irA("calendario")}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d={ICONO_CALENDARIO} />
+          </svg>
+          {t.calendario}
         </button>
         <button aria-current={vista === "chat" ? "page" : undefined} onClick={() => irA("chat")}>
           <svg viewBox="0 0 24 24" aria-hidden="true">

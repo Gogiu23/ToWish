@@ -917,7 +917,9 @@ main.con-pestanas {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  width: min(140px, 33%); /* tres pestañas: Planes, Mundo, Chat */
+  flex: 1 1 0; /* cuatro pestañas: Planes, Mundo, Calendario, Chat; se reparten el ancho */
+  max-width: 140px;
+  min-width: 0;
   border: none;
   border-radius: 14px;
   background: none;
@@ -1411,8 +1413,10 @@ main.con-pestanas {
    botón del menú (centro a 38px); "Nuestra lista de deseos", el saludo y los destellos se van.
    Medidas: el centro del título está 73px por debajo del inicio de la cabecera → top: 38 − 73 = −35px,
    y la cabecera empieza a 24px, así que se pega tras 59px de scroll. */
+/* :not(.compacta): la cabecera pequeña de Mundo y Chat tiene su propio sticky (top: 0); sin esto, estas
+   reglas, más específicas, la pegaban a -35px y el título se subía al hacer scroll */
 @supports (animation-timeline: scroll()) {
-  main.con-pestanas .cabecera {
+  main.con-pestanas .cabecera:not(.compacta) {
     position: sticky;
     top: -35px;
     z-index: 2;
@@ -1421,7 +1425,7 @@ main.con-pestanas {
 
   /* Franja blanca de 0 a 76px de la pantalla para que las tarjetas no se vean por debajo
      (box-shadow + clip-path: de lado a lado sin provocar scroll horizontal) */
-  main.con-pestanas .cabecera::before {
+  main.con-pestanas .cabecera:not(.compacta)::before {
     content: "";
     position: absolute;
     top: 35px;
@@ -1438,14 +1442,14 @@ main.con-pestanas {
     animation-range: 40px 59px;
   }
 
-  main.con-pestanas .cabecera .titulo {
+  main.con-pestanas .cabecera:not(.compacta) .titulo {
     animation: encoger-titulo linear both;
     animation-timeline: scroll(root);
     animation-range: 0 59px;
   }
 
-  main.con-pestanas .cabecera .badge,
-  main.con-pestanas .cabecera .sub {
+  main.con-pestanas .cabecera:not(.compacta) .badge,
+  main.con-pestanas .cabecera:not(.compacta) .sub {
     animation: ocultar-al-bajar linear both;
     animation-timeline: scroll(root);
     animation-range: 0 40px;
@@ -2236,4 +2240,574 @@ main.con-pestanas {
 
 .anadir.peligro:hover {
   background: #a8335a;
+}
+
+/* Editar un plan: la misma hoja que los comentarios, con el formulario dentro */
+.editar-titulo {
+  flex: 1;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 1.1rem;
+}
+
+.post .editar-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+}
+
+.editar-form .botones-cuenta {
+  margin-top: 4px;
+}
+
+/* Cartel de avisos: igual que el de instalar, con una campana en vez del icono de la app */
+.instalar .icono-avisos {
+  width: 48px;
+  height: 48px;
+  padding: 11px;
+  border: 1px solid var(--linea);
+  border-radius: 12px;
+  background: var(--rosa-claro);
+  fill: none;
+  stroke: var(--tinta);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Comentarios: me gusta, editar y borrar (los dos últimos, solo en los propios) */
+.acciones-comentario {
+  display: flex;
+  gap: 2px;
+  margin: 4px 0 -2px -8px; /* -8px: el icono queda alineado con el texto */
+}
+
+.acciones-comentario .accion:hover {
+  background: rgb(255 255 255 / 0.6);
+}
+
+.editar-comentario {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+}
+
+/* El aviso de "Deshacer" dentro de la hoja: encima de la caja de escribir */
+.deshacer.en-hoja {
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  z-index: 3;
+}
+
+/* ------------------------------------------------------------------ */
+/* Fecha de un plan: selector propio en los formularios y etiqueta en la tarjeta */
+.icono-fecha {
+  fill: none !important;
+  stroke: var(--tinta) !important;
+  stroke-width: 1.8 !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Fecha elegida: píldora lila (como el lugar elegido) que se toca para cambiarla */
+.fecha-elegida {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--lila);
+  animation: sf-aparecer 0.2s ease-out;
+}
+
+.fecha-elegida-texto {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  color: var(--tinta);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fecha-elegida-texto span::first-letter { text-transform: uppercase; }
+
+.fecha-elegida svg {
+  flex-shrink: 0;
+  width: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fecha-quitar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--tarjeta);
+  color: var(--tinta);
+  cursor: pointer;
+}
+
+/* Panel del selector: atajos + mini calendario */
+.selector-fecha {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--linea);
+  border-radius: 18px;
+  background: var(--tarjeta);
+  box-shadow: 4px 4px 0 var(--lila);
+  animation: sf-aparecer 0.22s cubic-bezier(0.34, 1.4, 0.64, 1);
+  transform-origin: top left;
+}
+
+@keyframes sf-aparecer {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+}
+
+.sf-atajos {
+  display: flex;
+  gap: 6px;
+}
+
+.sf-atajos button {
+  flex: 1;
+  padding: 7px 6px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--rosa-claro);
+  color: var(--tinta);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, scale 0.12s;
+}
+
+.sf-atajos button:hover { background: var(--rosa); }
+.sf-atajos button:active { scale: 0.95; }
+.sf-atajos button[aria-pressed="true"] { background: var(--lila); }
+
+.sf-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sf-cabecera strong {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+}
+
+.sf-cabecera strong::first-letter { text-transform: uppercase; }
+
+.sf-flecha {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--tarjeta);
+  color: var(--tinta);
+  cursor: pointer;
+}
+
+.sf-flecha:hover { background: var(--lila); }
+
+.sf-flecha svg {
+  width: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sf-semana,
+.sf-dias {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.sf-semana span {
+  color: var(--gris);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.sf-dias {
+  animation: cal-entrar 0.25s ease-out;
+}
+
+.sf-dia {
+  aspect-ratio: 1;
+  min-height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: var(--tinta);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.12s, scale 0.12s;
+}
+
+.sf-dia:hover { background: var(--gris-claro); }
+.sf-dia:active { scale: 0.9; }
+.sf-dia.fuera { opacity: 0.3; }
+.sf-dia.pasado { color: var(--gris); }
+.sf-dia.hoy { border-color: var(--linea); font-weight: 800; }
+
+.sf-dia[aria-pressed="true"] {
+  border-color: var(--linea);
+  background: var(--lila);
+  box-shadow: 2px 2px 0 var(--tinta);
+  font-weight: 800;
+}
+
+.sf-pie {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sf-pie .pildora {
+  padding: 6px 14px;
+  font-size: 0.82rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selector-fecha,
+  .fecha-elegida,
+  .sf-dias { animation: none; }
+}
+
+.fecha-plan {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 9px 1px 7px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--lila);
+  color: var(--tinta);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.fecha-plan svg {
+  width: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fecha-plan.hoy { background: var(--rosa); }
+.fecha-plan.atrasado { background: var(--rosa-claro); border-style: dashed; } /* pasó el día y sigue pendiente */
+
+/* ------------------------------------------------------------------ */
+/* Calendario */
+.calendario {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--linea);
+  border-radius: 20px;
+  background: var(--tarjeta);
+  box-shadow: 6px 6px 0 var(--lila);
+}
+
+.calendario-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.calendario-cabecera h2 {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  text-align: center;
+}
+
+.calendario-cabecera h2::first-letter { text-transform: uppercase; } /* "octubre de 2026" → "Octubre de 2026" */
+
+.cal-flecha {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--tarjeta);
+  color: var(--tinta);
+  cursor: pointer;
+  transition: background 0.15s, scale 0.15s;
+}
+
+.cal-flecha:hover { background: var(--lila); }
+.cal-flecha:active { scale: 0.92; }
+
+.cal-flecha svg {
+  width: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cal-semana,
+.cal-cuadricula {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.cal-semana span {
+  padding: 2px 0;
+  color: var(--gris);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.cal-cuadricula {
+  animation: cal-entrar 0.28s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+@keyframes cal-entrar {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+}
+
+.cal-dia {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  aspect-ratio: 1;
+  min-height: 40px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: none;
+  color: var(--tinta);
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s, scale 0.12s;
+}
+
+.cal-dia:hover { background: var(--gris-claro); }
+.cal-dia:active { scale: 0.92; }
+.cal-dia.fuera { opacity: 0.35; }
+
+.cal-dia.hoy {
+  border-color: var(--linea);
+  font-weight: 800;
+}
+
+.cal-dia.elegido {
+  border-color: var(--linea);
+  background: var(--lila);
+  box-shadow: 2px 2px 0 var(--tinta);
+  font-weight: 800;
+}
+
+.cal-numero {
+  font-size: 0.92rem;
+  line-height: 1;
+}
+
+.cal-puntos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 7px;
+}
+
+.cal-puntos b {
+  font-size: 0.6rem;
+  line-height: 1;
+}
+
+.cal-puntos i,
+.cal-leyenda i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--linea);
+  border-radius: 50%;
+}
+
+.cal-puntos i.pendiente,
+.cal-leyenda i.pendiente { background: var(--rosa); }
+.cal-puntos i.hecho,
+.cal-leyenda i.hecho { background: var(--azul); }
+
+.cal-leyenda {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--gris);
+  font-size: 0.75rem;
+}
+
+.cal-leyenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cal-hoy {
+  margin-left: auto;
+  padding: 5px 14px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--tarjeta);
+  color: var(--tinta);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cal-hoy:hover { background: var(--rosa-claro); }
+
+/* Panel del día elegido */
+.cal-dia-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--linea);
+}
+
+.cal-dia-panel h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+}
+
+.cal-dia-panel h3::first-letter { text-transform: uppercase; }
+
+.cal-dia-panel h3 svg {
+  flex-shrink: 0;
+  width: 18px;
+  fill: none;
+  stroke: var(--tinta);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cal-vacio {
+  margin: 0;
+  color: var(--gris);
+  font-size: 0.9rem;
+}
+
+.cal-lista {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cal-lista li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--rosa-claro);
+  animation: cal-entrar 0.25s ease-out both;
+}
+
+.cal-lista li.hecho { background: var(--azul-claro); }
+.cal-lista li.hecho strong { text-decoration: line-through; text-decoration-thickness: 1px; }
+
+.cal-plan {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cal-plan small {
+  color: var(--gris);
+  font-size: 0.75rem;
+}
+
+.cal-quitar {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--tarjeta);
+  color: var(--tinta);
+  cursor: pointer;
+}
+
+.cal-poner {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.cal-sin-fecha summary {
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cal-sin-fecha .cal-lista li { background: var(--gris-claro); }
+.cal-sin-fecha .cal-lista li.hecho { background: var(--gris-claro); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-cuadricula,
+  .cal-lista li { animation: none; }
 }

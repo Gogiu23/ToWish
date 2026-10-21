@@ -1,9 +1,8 @@
+import { ENDPOINT, PROYECTO } from "./proyecto";
 import { Account, Client, Functions, Presences, Realtime, TablesDB, Teams } from "appwrite";
 
 // Son IDs públicos (acaban en el navegador igualmente); lo que protege los datos es el login
-const client = new Client()
-  .setEndpoint("https://fra.cloud.appwrite.io/v1")
-  .setProject("6aa7fdb90023eb740a7c");
+const client = new Client().setEndpoint(ENDPOINT).setProject(PROYECTO);
 
 export const account = new Account(client);
 export const db = new TablesDB(client);

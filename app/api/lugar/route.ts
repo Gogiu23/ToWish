@@ -1,13 +1,27 @@
 import type { NextRequest } from "next/server";
 import { buscarLugares, esHostGoogle, leerLinkGoogle, nombreCercano } from "../../lugar";
+import { ENDPOINT, PROYECTO } from "../../proyecto";
 
 const NOMINATIM: RequestInit = { headers: { "User-Agent": "ToWish/0.1 (lista de deseos personal)" } };
 const conTiempo = () => ({ ...NOMINATIM, signal: AbortSignal.timeout(5000) });
 
+// Solo para quien tiene sesión: el cliente manda un JWT de Appwrite (15 min de vida) y aquí se comprueba contra
+// Appwrite. Sin esto, cualquiera en internet podría usar este endpoint como proxy hacia Nominatim con nuestra IP.
+async function sesionValida(jwt: string | null) {
+  if (!jwt) return false;
+  const r = await fetch(`${ENDPOINT}/account`, {
+    headers: { "X-Appwrite-Project": PROYECTO, "X-Appwrite-JWT": jwt },
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => null);
+  return !!r?.ok;
+}
+
 // Los links cortos que comparte el móvil (maps.app.goo.gl/…) no llevan coordenadas: hay que seguir
 // la redirección, y el navegador no puede por CORS. Solo seguimos saltos a hosts de Google.
 export async function GET(req: NextRequest) {
-  const idioma = req.nextUrl.searchParams.get("idioma") ?? "es";
+  if (!(await sesionValida(req.headers.get("x-appwrite-jwt")))) return Response.json({ error: "sesion" }, { status: 401 });
+  const idiomaPedido = req.nextUrl.searchParams.get("idioma") ?? "";
+  const idioma = ["es", "ru", "it"].includes(idiomaPedido) ? idiomaPedido : "es"; // va a Nominatim: solo valores conocidos
   let actual: URL;
   try {
     actual = new URL(req.nextUrl.searchParams.get("url") ?? "");
