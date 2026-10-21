@@ -43,8 +43,11 @@ function modoSafari(): Modo {
 }
 
 /** La primera vez que se entra, propone instalar ToWish como app (escritorio o pantalla de inicio). */
-export default function Instalar({ t, conPestanas }: { t: Textos; conPestanas: boolean }) {
+export default function Instalar({ t, conPestanas, onMostrado }: { t: Textos; conPestanas: boolean; onMostrado?: (v: boolean) => void }) {
   const [modo, setModo] = useState<Modo>(null);
+
+  // Avisa de si el cartel está a la vista (otros carteles esperan a que se vaya)
+  useEffect(() => onMostrado?.(!!modo), [modo, onMostrado]);
 
   useEffect(() => {
     if (yaVisto() || instalada()) return;

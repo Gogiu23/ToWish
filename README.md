@@ -17,16 +17,22 @@ Hecha con Next.js 16, React 19 y Appwrite. Es una PWA: se instala en el móvil o
 - **Varios grupos por persona**, con selector en la barra lateral. Cada grupo solo ve lo suyo: lo garantizan los permisos de Appwrite en el servidor, no la app.
 - **Borrar grupo** (solo quien lo creó), con confirmación: se borran sus planes, mensajes y comentarios para todos.
 - **Cierre de sesión automático:** tras 5 minutos fuera de la app o 10 minutos sin actividad dentro.
-- **Cambiar la contraseña** desde la barra lateral.
+- **Cambiar la contraseña** y **eliminar la cuenta** desde la barra lateral.
 
 ### Planes
 - Añadir planes en tiempo real (lo que apunta uno aparece al momento en los móviles de los demás).
 - **Lugar opcional** en cada plan: buscador con **sugerencias mientras escribes** (calles con número, comercios, sitios) o pegando un **link de Google Maps** (también los cortos `maps.app.goo.gl`). Cada plan con lugar enseña un minimapa que abre la ruta en Google Maps.
-- Marcar como hecho, **me gusta**, **comentarios** (cada plan se abre como un «post»).
+- Marcar como hecho, **me gusta** y **comentarios** (cada plan se abre como un «post»; los comentarios también tienen «me gusta» y se pueden editar y borrar).
+- **Editar un plan:** cambiar el texto y añadir, cambiar o quitar el lugar y la fecha.
+- **Fecha prevista** opcional en cada plan, que se ve en la tarjeta.
 - Fecha de cada plan y **cuánto tiempo lleváis deseando hacerlo**.
 - **Desliza a la derecha para borrar**, con 5 segundos para deshacer.
 - Filtros (todos / pendientes / hechos) y orden (más nuevos o más antiguos primero).
 - Tarjetas que se apilan al hacer scroll y título que se encoge en una cabecera pegada (animaciones ligadas al scroll, solo CSS).
+
+### Calendario
+- Pestaña con un **calendario mensual** (semana desde el lunes, en el idioma de cada persona): los días con planes llevan un punto rosa (pendiente) o azul (hecho).
+- Tocar un día enseña sus planes; los planes **sin fecha** se pueden poner en el día elegido, y los de un día se pueden quitar de él.
 
 ### Mundo
 - **Globo 3D** con un **pin** por cada sitio pendiente y una **bandera** por cada plan hecho.
@@ -128,11 +134,13 @@ Base de datos `nuestra-lista`. Todas las tablas con **seguridad por fila** y, a 
 
 | Tabla | Columnas | Permisos de cada fila |
 | --- | --- | --- |
-| `planes` | `texto`, `quien`, `hecho`, `lugar`, `lat`, `lng`, `likes[]`, `grupo` | leer, editar y borrar: el grupo |
+| `planes` | `texto`, `quien`, `hecho`, `lugar`, `lat`, `lng`, `likes[]`, `grupo`, `fecha` (`AAAA-MM-DD`) | leer, editar y borrar: el grupo |
 | `mensajes` | `texto`, `autor`, `autorId`, `respondeA`, `respondeAutor`, `respondeTexto`, `grupo` | leer: el grupo · editar y borrar: el autor |
 | `comentarios` | `planId`, `texto`, `autor`, `autorId`, `grupo` | leer: el grupo · editar y borrar: el autor |
+| `reacciones` | `comentarioId`, `userId`, `grupo` (índice único por comentario y persona) | leer: el grupo · borrar: quien reaccionó |
 | `suscripciones` | `userId`, `endpoint`, `p256dh`, `auth` | leer y borrar: el propio usuario |
 | `grupos` | `nombre`, `codigo` (índice único) | leer: el grupo · solo la escribe la función `grupos` |
+| `intentos` | `userId` | ninguno: solo el servidor (cuenta los códigos de invitación fallidos) |
 
 Índices `key` sobre `grupo` en planes, mensajes y comentarios, y sobre `planId` en comentarios.
 
@@ -142,7 +150,7 @@ Cada grupo es un **Team** de Appwrite; quien lo crea tiene el rol `owner`.
 
 | Función | Se dispara | Permisos (scopes) |
 | --- | --- | --- |
-| `grupos` | La app la ejecuta (`execute: users`) con `{ accion: "crear" \| "unirse" \| "borrar" }` | `teams.read`, `teams.write`, `rows.read`, `rows.write`, `users.read` |
+| `grupos` | La app la ejecuta (`execute: users`) con `{ accion: "crear" \| "unirse" \| "borrar" \| "eliminar-cuenta" }` | `teams.read`, `teams.write`, `rows.read`, `rows.write`, `users.read`, `users.write` |
 | `avisar-mensaje` | Evento `tablesdb.nuestra-lista.tables.mensajes.rows.*.create` | `rows.read`, `rows.write`, `presences.read`, `teams.read` |
 
 `avisar-mensaje` necesita las variables `VAPID_PUBLIC`, `VAPID_PRIVATE` (secreta) y `VAPID_SUBJECT` (por ejemplo `mailto:tu@email`). Se generan con `npx web-push generate-vapid-keys`; la pública también va en `app/notificaciones.ts`.
@@ -170,8 +178,21 @@ netlify deploy --build --prod
 ```bash
 npx tsc --noEmit                # tipos
 npm run lint                    # ESLint
-node --test app/*.test.ts       # tests (tiempo transcurrido y links de Google Maps)
+node --test app/*.test.ts       # tests (tiempo, links de Google Maps, fechas y errores de contraseña)
 ```
+
+---
+
+## Seguridad
+
+- **Permisos por fila:** ninguna tabla se puede leer por ser usuario; cada fila lleva los permisos del equipo del grupo (Appwrite los aplica en el servidor, también en el tiempo real).
+- **El servidor decide lo importante:** el límite de 3 personas, unirse con código, borrar grupos y eliminar cuentas van en una función con sus propias comprobaciones.
+- **Códigos de invitación:** 5 fallos cada 15 minutos por cuenta como máximo (los cuenta una tabla que solo toca el servidor).
+- **Avisos push:** el servidor solo envía a servicios de Chrome, Firefox, Safari y Edge (lista cerrada, contra SSRF) y solo si quien escribe el mensaje es del grupo.
+- **Política de contenido (CSP)** y cabeceras de seguridad (HSTS, Permissions-Policy, anti-iframe…): la página solo carga y se conecta a los servicios que usa. Si se añade uno nuevo, hay que añadirlo en `next.config.ts`.
+- **`/api/lugar` exige sesión** (token de Appwrite) y solo sigue enlaces de Google.
+- **Contraseñas:** mínimo 8, sin las del diccionario ni con datos personales; sesiones de 30 días como máximo.
+- **Límites conocidos:** dentro de un grupo, alguien podría escribir mensajes o reacciones con el nombre de otro miembro (confianza entre amigos); la clave de Geoapify es pública por naturaleza, conviene restringirla por dominio en su panel.
 
 ---
 

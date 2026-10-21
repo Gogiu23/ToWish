@@ -1,6 +1,8 @@
 export type Lugar = { nombre: string; lat: number; lng: number };
 export type ResultadoLugar = Lugar & { detalle: string };
 
+export const PIN = "M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7Zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z";
+
 const valido = (lat: number, lng: number) =>
   Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 

@@ -9,6 +9,7 @@ export function textoErrorGrupo(t: Textos, codigo: string) {
     "codigo-no-valido": t.codigoNoValido,
     "grupo-lleno": t.grupoLleno,
     "demasiados-grupos": t.demasiadosGrupos,
+    "demasiados-intentos": t.demasiadosIntentos,
   };
   return errores[codigo] ?? t.errorGrupo;
 }

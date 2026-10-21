@@ -4,6 +4,7 @@ import type { Models } from "appwrite";
 import { useEffect, useRef, useState } from "react";
 import pkg from "../package.json";
 import { account } from "./appwrite";
+import { textoErrorClave } from "./claves";
 import { cerrarConAnimacion } from "./dialogo";
 import FormGrupo from "./FormGrupo";
 import { borrarGrupo, codigoDeGrupo, eliminarCuenta, enlaceInvitacion, MAX_MIEMBROS, type Grupo } from "./grupos";
@@ -56,7 +57,7 @@ export default function Lateral({ t, idioma, onIdioma, usuario, onSalir, grupos,
     } catch (err) {
       // 401: Appwrite rechaza la contraseña actual
       const codigo = (err as { code?: number }).code;
-      setAvisoClave({ ok: false, texto: codigo === 401 ? t.claveActualMal : t.claveError });
+      setAvisoClave({ ok: false, texto: codigo === 401 ? t.claveActualMal : textoErrorClave(t, err, t.claveError) });
     } finally {
       setGuardandoClave(false);
     }
