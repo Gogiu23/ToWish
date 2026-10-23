@@ -39,7 +39,7 @@ y ved todos vuestros planes repartidos por un globo 3D.
 
 ToWish es una pequeña app para **grupos de hasta 3 personas** (pareja, amigos, familia) que quieren llevar juntos su lista de cosas pendientes por hacer: ese viaje, ese restaurante, ese concierto…
 
-Todo se comparte **en tiempo real**: lo que apunta uno aparece al momento en el móvil de los demás. Se instala como una app más y **avisa de los mensajes** aunque esté cerrada.
+Todo se comparte **en tiempo real**: lo que apunta uno aparece al momento en el móvil de los demás. Se instala como una app más y **avisa** de los mensajes, los planes nuevos y los «me gusta» aunque esté cerrada.
 
 ---
 
@@ -93,7 +93,7 @@ Todo se comparte **en tiempo real**: lo que apunta uno aparece al momento en el 
 **Chat**
 - El chat del grupo, viendo **quién está conectado**.
 - Desliza a la izquierda para **responder** y a la derecha para **borrar** tus mensajes.
-- **Notificaciones** al móvil cuando te escriben, aunque la app esté cerrada.
+- **Notificaciones** al móvil cuando te escriben, cuando alguien añade un plan o le da «me gusta» a algo tuyo, aunque la app esté cerrada y en tu idioma.
 
     </td>
     <td width="50%" align="center"><img src="docs/chat.png" alt="Chat del grupo con respuestas y quién está conectado" width="260" /></td>
@@ -109,9 +109,10 @@ Todo se comparte **en tiempo real**: lo que apunta uno aparece al momento en el 
     <td width="50%" align="center"><img src="docs/login.jpg" alt="Pantalla de entrada con vídeo de paisaje" width="260" /></td>
     <td width="50%" valign="top">
 
-- **Crea tu cuenta** en la propia pantalla de entrada.
+- **Crea tu cuenta** en la propia pantalla de entrada, y entra después con **Face ID o huella**, sin contraseña.
 - **Crea un grupo** e **invita** con un código de 6 letras, un enlace o directamente por **WhatsApp**.
-- Puedes estar en **varios grupos**; cada uno solo ve lo suyo.
+- Puedes estar en **varios grupos** y cambiar de uno a otro tocando su nombre; cada uno solo ve lo suyo.
+- **Varias cuentas en el mismo móvil:** cambia de cuenta en un toque con Face ID o huella, sin cerrar sesión. Cada cuenta recibe sus propios avisos.
 - **Tres idiomas:** español, ruso e italiano.
 - **Instalable** en el móvil y en el ordenador (PWA).
 - **Novedades** a un toque, en el botón ✦ de arriba a la derecha.
@@ -192,7 +193,7 @@ Base de datos `nuestra-lista`. Todas las tablas con **seguridad por fila** y, a 
 | `mensajes` | `texto`, `autor`, `autorId`, `respondeA`, `respondeAutor`, `respondeTexto`, `grupo` | leer: el grupo · editar y borrar: el autor |
 | `comentarios` | `planId`, `texto`, `autor`, `autorId`, `grupo` | leer: el grupo · editar y borrar: el autor |
 | `reacciones` | `comentarioId`, `userId`, `grupo` (índice único por comentario y persona) | leer: el grupo · borrar: quien reaccionó |
-| `suscripciones` | `userId`, `endpoint`, `p256dh`, `auth` | leer y borrar: el propio usuario |
+| `suscripciones` | `userId`, `endpoint`, `p256dh`, `auth`, `idioma` (una fila por dispositivo y cuenta) | leer y borrar: el propio usuario |
 | `grupos` | `nombre`, `codigo` (índice único) | leer: el grupo · solo la escribe la función `grupos` |
 | `intentos` | `userId` | ninguno: solo el servidor (cuenta los códigos de invitación fallidos) |
 
@@ -208,7 +209,9 @@ Base de datos `nuestra-lista`. Todas las tablas con **seguridad por fila** y, a 
 | Función | Se dispara | Permisos (scopes) |
 | --- | --- | --- |
 | `grupos` | La app la ejecuta (`execute: users`) con `{ accion: "crear" \| "unirse" \| "borrar" \| "eliminar-cuenta" }` | `teams.read`, `teams.write`, `rows.read`, `rows.write`, `users.read`, `users.write` |
-| `avisar-mensaje` | Evento `tablesdb.nuestra-lista.tables.mensajes.rows.*.create` | `rows.read`, `rows.write`, `presences.read`, `teams.read` |
+| `avisar-mensaje` | Eventos de creación en `mensajes`, `planes` y `reacciones`; y la app (`execute: users`) con `{ accion: "like-plan" }` | `rows.read`, `rows.write`, `presences.read`, `teams.read` |
+
+Las llaves de acceso necesitan activar el método `passkey` en el proyecto y fijar el dominio de la app (`npx appwrite-cli project update-passkey-policy --rp-id tu-dominio`).
 
 `avisar-mensaje` necesita las variables `VAPID_PUBLIC`, `VAPID_PRIVATE` (secreta) y `VAPID_SUBJECT` (por ejemplo `mailto:tu@email`). Se generan con `npx web-push generate-vapid-keys`; la pública también va en `app/notificaciones.ts`.
 
@@ -233,6 +236,9 @@ app/
   fechas.ts                Fechas de calendario (AAAA-MM-DD) sin líos de zona horaria
   EditarPlan.tsx           Editar texto, lugar y fecha de un plan
   SelectorLugar.tsx        Buscador de sitios (sugerencias y links de Google Maps)
+  SelectorGrupo.tsx        Menú para cambiar de grupo o crear / unirse a otro
+  passkeys.ts              Llaves de acceso: entrar con Face ID / huella y cambiar de cuenta
+  AvisoLlave.tsx           Propuesta de activar Face ID / huella tras entrar
   lugar.ts                 Búsqueda de sitios, links de Google Maps y teselas
   api/lugar/route.ts       Resuelve links de Google Maps en el servidor (con sesión)
   Mundo.tsx                Globo 3D, marcadores, vuelo y transición de nubes
@@ -254,7 +260,7 @@ app/
   opengraph-image.tsx      Imagen para compartir
 functions/
   grupos/                  Crear, unirse (máx. 3), borrar grupos y eliminar cuentas
-  avisar-mensaje/          Push a los demás del grupo al llegar un mensaje
+  avisar-mensaje/          Avisos push del grupo: mensajes, planes nuevos y «me gusta»
 public/
   sw.js                    Service worker (avisos y abrir el chat)
   videos/                  Fondos de la pantalla de entrada
@@ -274,6 +280,8 @@ public/
 - **Política de contenido (CSP)** y cabeceras de seguridad (HSTS, Permissions-Policy, anti-iframe…): la página solo carga y se conecta a los servicios que usa. Si se añade uno nuevo, hay que añadirlo en `next.config.ts`.
 - **`/api/lugar` exige sesión** (token de Appwrite) y solo sigue enlaces de Google.
 - **Contraseñas:** mínimo 8 caracteres, sin las del diccionario ni con datos personales; sesiones de 30 días como máximo.
+- **Métodos de entrada:** solo email y contraseña y llaves de acceso (Face ID / huella, que exigen verificación del usuario). La entrada anónima, por enlace, por código de email y por teléfono están desactivadas.
+- **Avisos de «me gusta» a un plan:** los pide la app, pero el servidor comprueba que el «me gusta» está de verdad en el plan y que quien lo pide es del grupo.
 - **Límites conocidos:** dentro de un grupo, alguien podría escribir mensajes o reacciones con el nombre de otro miembro (confianza entre amigos), y no se verifica el email al darse de alta.
 
 </details>
