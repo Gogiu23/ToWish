@@ -7,7 +7,9 @@ import { preconnect } from "react-dom";
 import { useBorradoDiferido } from "./borrado";
 import Chat from "./Chat";
 import Comentarios, { useComentarios, type Comentario } from "./Comentarios";
+import AvisoLlave from "./AvisoLlave";
 import AvisoNotificaciones from "./AvisoNotificaciones";
+import { entrarConLlave, llavesDisponibles } from "./passkeys";
 import Deslizable from "./Deslizable";
 import Calendario from "./Calendario";
 import CampoFecha, { ICONO_CALENDARIO } from "./CampoFecha";
@@ -30,9 +32,10 @@ import Lateral from "./Lateral";
 import Mundo from "./Mundo";
 import Novedades from "./Novedades";
 import pkg from "../package.json";
-import { desactivarNotificaciones, registrarServiceWorker } from "./notificaciones";
+import { avisarLikePlan, desactivarNotificaciones, registrarServiceWorker, sincronizarIdiomaAvisos } from "./notificaciones";
 import { textoErrorClave } from "./claves";
 import { PIN, teselas, urlRuta, type Lugar } from "./lugar";
+import SelectorGrupo from "./SelectorGrupo";
 import SelectorLugar from "./SelectorLugar";
 import { formatearTiempo } from "./tiempo";
 
@@ -180,17 +183,11 @@ function Deseando({ desde, idioma, t }: { desde: string; idioma: Idioma; t: Text
 const ESTRELLA = "M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z";
 
 // esGrupo: el badge es el nombre del grupo (lila, con icono de personas)
-function Cabecera({ badge, esGrupo, children }: { badge: string; esGrupo?: boolean; children: React.ReactNode }) {
+// badge: texto fijo (login) o el selector de grupo (con sesión)
+function Cabecera({ badge, children }: { badge: React.ReactNode; children: React.ReactNode }) {
   return (
     <header className="cabecera">
-      <span className={`badge${esGrupo ? " badge-grupo" : ""}`}>
-        {esGrupo && (
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm-6 9c0-3.3 2.7-6 6-6s6 2.7 6 6M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14.3c1.8.9 3 2.9 3 5.7" />
-          </svg>
-        )}
-        {badge}
-      </span>
+      {typeof badge === "string" ? <span className="badge">{badge}</span> : badge}
       {/* Los brillos van dentro del bloque del título: al encogerse al bajar, se van con él */}
       <div className="titulo">
         <svg className="destello d1" viewBox="0 0 24 24" aria-hidden="true">
@@ -240,6 +237,9 @@ export default function Home() {
   const [lugar, setLugar] = useState<Lugar | null>(null);
   const [fecha, setFecha] = useState(""); // día previsto del plan nuevo ("" = sin fecha)
   const [instalarVisible, setInstalarVisible] = useState(false); // el cartel de instalar está a la vista
+  const [llaveVisible, setLlaveVisible] = useState(false); // el de activar Face ID / huella
+  const [recienEntrado, setRecienEntrado] = useState(false); // acaba de entrar con contraseña: se le ofrece la llave
+  const [conLlaves, setConLlaves] = useState(false); // el navegador permite llaves de acceso
   const [claveLugar, setClaveLugar] = useState(0); // al cambiarla, el selector de lugar del formulario empieza de cero
   const [planEditando, setPlanEditando] = useState<Plan | null>(null);
   // Borrado diferido: el plan desaparece ya, pero solo se borra en Appwrite si no se deshace en 5 s
@@ -267,11 +267,17 @@ export default function Home() {
       .finally(() => setCargado(true));
     // eslint-disable-next-line react-hooks/set-state-in-effect -- leer localStorage solo tras montar evita el desajuste de hidratación
     setIdioma(idiomaGuardado());
+    setConLlaves(llavesDisponibles());
   }, []);
 
   useEffect(() => {
     document.documentElement.lang = idioma;
   }, [idioma]);
+
+  // Los avisos llegan en el idioma de la app: si este dispositivo los tiene activados, se le dice cuál es
+  useEffect(() => {
+    if (usuario) sincronizarIdiomaAvisos(usuario, idioma);
+  }, [usuario, idioma]);
 
   // PWA y avisos: al tocar una notificación se llega al chat (por la URL o, si ya estaba abierta, por mensaje del SW)
   useEffect(() => {
@@ -292,10 +298,12 @@ export default function Home() {
       ["unirse", "grupo", "vista"].forEach((k) => q.delete(k));
       history.replaceState(null, "", url);
     }
+    // Aviso tocado con la app abierta: al grupo del aviso, y al chat si era un mensaje
     const alMensaje = (e: MessageEvent) => {
-      if (e.data?.vista !== "chat") return;
+      const v = e.data?.vista;
+      if (v !== "chat" && v !== "planes") return;
       if (e.data.grupo) elegirGrupo(e.data.grupo);
-      setVista("chat");
+      setVista(v);
     };
     navigator.serviceWorker?.addEventListener("message", alMensaje);
     return () => navigator.serviceWorker?.removeEventListener("message", alMensaje);
@@ -410,11 +418,23 @@ export default function Home() {
     try {
       await account.createEmailPasswordSession({ email, password });
       setUsuario(await account.get());
+      setRecienEntrado(true);
     } catch (err) {
       // Solo el 401 es de verdad "email o contraseña mal"; antes cualquier fallo salía así
       const { code, type } = err as { code?: number; type?: string };
       if (type === "user_session_already_exists") return setUsuario(await account.get().catch(() => null));
       setError(code === 429 ? t.demasiadosIntentos : code === 401 ? t.loginError : t.errorConexion);
+    }
+  }
+
+  // Face ID / huella: el sistema enseña las cuentas con llave en este dispositivo y se entra con la elegida
+  async function entrarLlave() {
+    setError("");
+    try {
+      await entrarConLlave(false);
+      setUsuario(await account.get());
+    } catch (e) {
+      if ((e as Error).name !== "NotAllowedError" && (e as Error).message !== "cancelado") setError(t.errorLlave);
     }
   }
 
@@ -489,7 +509,7 @@ export default function Home() {
 
   async function salir() {
     borrado.confirmar();
-    await desactivarNotificaciones(); // que este móvil no siga recibiendo avisos de esta cuenta
+    if (usuario) await desactivarNotificaciones(usuario); // este móvil deja de recibir los avisos de esta cuenta
     await account.deleteSession({ sessionId: "current" });
     setUsuario(null);
     setPlanes([]);
@@ -570,6 +590,8 @@ export default function Home() {
         data: { likes: yaLoTenia ? Operator.arrayRemove(usuario.$id) : Operator.arrayAppend([usuario.$id]) },
       });
       setPlanes((ps) => upsert(ps, aPlan(r)));
+      // Aviso a los demás del grupo (lo comprueba el servidor). Sin esperar: si falla, el "me gusta" ya está dado
+      if (!yaLoTenia) avisarLikePlan(p.id);
     } catch (e) {
       setPlanes((ps) => upsert(ps, p)); // no se ha podido: vuelve como estaba
       setError((e as Error).message);
@@ -636,6 +658,14 @@ export default function Home() {
         >
           {registro ? t.yaTengoCuenta : t.noTengoCuenta}
         </button>
+        {conLlaves && !registro && (
+          <button className="entrar-llave" onClick={entrarLlave}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 11V8a4 4 0 1 1 8 0v3M6 11h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Zm6 4v2" />
+            </svg>
+            {t.entrarConLlave}
+          </button>
+        )}
         {error && <p className="vacio">{error}</p>}
       </main>
     );
@@ -669,9 +699,14 @@ export default function Home() {
     <main className="con-pestanas">
       {lateral}
       <Instalar t={t} conPestanas onMostrado={setInstalarVisible} />
-      <AvisoNotificaciones t={t} usuario={usuario} esperar={instalarVisible} />
+      <AvisoLlave t={t} usuario={usuario} recienEntrado={recienEntrado} onMostrado={setLlaveVisible} />
+      <AvisoNotificaciones t={t} usuario={usuario} esperar={instalarVisible || llaveVisible} />
       <div hidden={vista !== "planes"}>
-        <Cabecera badge={grupo.nombre} esGrupo>{t.hola(usuario.name)}</Cabecera>
+        <Cabecera
+          badge={<SelectorGrupo grupos={grupos} grupo={grupo} t={t} onGrupo={elegirGrupo} onGrupoNuevo={grupoNuevo} />}
+        >
+          {t.hola(usuario.name)}
+        </Cabecera>
 
         <form onSubmit={anadir}>
           <input

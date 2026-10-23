@@ -29,7 +29,7 @@ export default function AvisoNotificaciones({ t, usuario, esperar }: { t: Textos
     if (yaVisto(usuario)) return;
     let vivo = true;
     // Solo si este dispositivo puede recibir avisos y aún no los tiene (el iPhone sin instalar sale como "instalar")
-    estadoNotificaciones().then((e) => vivo && setPuede(e === "desactivadas"));
+    estadoNotificaciones(usuario).then((e) => vivo && setPuede(e === "desactivadas"));
     return () => {
       vivo = false;
     };

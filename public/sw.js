@@ -4,7 +4,8 @@
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
-// Lo envía la función de Appwrite "avisar-mensaje": { title, body, url }
+// Lo envía la función de Appwrite "avisar-mensaje": { title, body, url, tag }
+// (mensajes del chat, planes nuevos y "me gusta"; el tag agrupa o sustituye los avisos del mismo tipo)
 self.addEventListener("push", (event) => {
   const datos = event.data ? event.data.json() : {};
   event.waitUntil(
@@ -12,14 +13,14 @@ self.addEventListener("push", (event) => {
       body: datos.body || "",
       icon: "/web-app-manifest-192x192.png",
       badge: "/icon.png",
-      tag: "chat", // varios mensajes seguidos se agrupan en una sola notificación
+      tag: datos.tag || "chat",
       renotify: true,
       data: { url: datos.url || "/?vista=chat" },
     }),
   );
 });
 
-// Al tocarla: si la app ya está abierta, se enfoca y salta al chat; si no, se abre en el chat
+// Al tocarla: si la app ya está abierta, se enfoca y va al grupo (y al chat si era un mensaje); si no, se abre ahí
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = new URL(event.notification.data?.url || "/?vista=chat", self.location.origin).href;
@@ -27,7 +28,8 @@ self.addEventListener("notificationclick", (event) => {
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((ventanas) => {
       const abierta = ventanas.find((v) => new URL(v.url).origin === self.location.origin);
       if (abierta) {
-        abierta.postMessage({ vista: "chat", grupo: new URL(url).searchParams.get("grupo") });
+        const q = new URL(url).searchParams;
+        abierta.postMessage({ vista: q.get("vista") || "planes", grupo: q.get("grupo") });
         return abierta.focus();
       }
       return self.clients.openWindow(url);

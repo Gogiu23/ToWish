@@ -18,42 +18,113 @@ function endpointPermitido(texto) {
   }
 }
 
-// Se dispara al crearse un mensaje (evento tablesdb.nuestra-lista.tables.mensajes.rows.*.create)
-// y manda una notificación push a los dispositivos de los demás del grupo. Nadie puede ejecutarla a mano.
-export default async function avisarMensaje({ req, res, log, error }) {
-  const m = req.bodyJson ?? {};
-  if (!m.autorId || !m.texto) return res.json({ enviadas: 0, motivo: "no es un mensaje" });
+const corto = (t, n = 140) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
 
+// Textos de los avisos en el idioma de cada dispositivo (el que tenía la app al activar los avisos)
+const TEXTOS = {
+  es: {
+    plan: (t) => `Nuevo plan: ${t}`,
+    likePlan: (n, t) => `A ${n} le ha gustado «${t}»`,
+    likeComentario: (n, t) => `A ${n} le ha gustado tu comentario: «${t}»`,
+  },
+  ru: {
+    plan: (t) => `Новый план: ${t}`,
+    likePlan: (n, t) => `${n}: нравится «${t}»`,
+    likeComentario: (n, t) => `${n}: нравится ваш комментарий «${t}»`,
+  },
+  it: {
+    plan: (t) => `Nuovo piano: ${t}`,
+    likePlan: (n, t) => `A ${n} piace «${t}»`,
+    likeComentario: (n, t) => `A ${n} piace il tuo commento: «${t}»`,
+  },
+};
+
+/**
+ * Avisos push del grupo. Se dispara:
+ *  - por evento de Appwrite al crearse un mensaje, un plan o un "me gusta" a un comentario;
+ *  - desde la app (llamada de un usuario) al dar "me gusta" a un plan: el evento de esa actualización no dice qué
+ *    cambió, así que la app lo pide y aquí se comprueba que el "me gusta" está de verdad en el plan.
+ * Nunca avisa a quien hizo la acción ni a quien tiene la app abierta (ya lo ve en directo).
+ */
+export default async function avisar({ req, res, log, error }) {
   // Clave de servidor que Appwrite crea para cada ejecución (con los permisos de la función)
   const client = new Client()
     .setEndpoint(process.env.APPWRITE_FUNCTION_API_ENDPOINT)
     .setProject(process.env.APPWRITE_FUNCTION_PROJECT_ID)
     .setKey(req.headers["x-appwrite-key"]);
   const db = new TablesDB(client);
-  const presencias = new Presences(client);
+  const equipos = new Teams(client);
   webpush.setVapidDetails(process.env.VAPID_SUBJECT, process.env.VAPID_PUBLIC, process.env.VAPID_PRIVATE);
 
-  // Solo a los del grupo del mensaje (menos quien lo escribe)
-  if (!m.grupo) return res.json({ enviadas: 0, motivo: "mensaje sin grupo" });
-  const equipos = new Teams(client);
-  const [equipo, { memberships }] = await Promise.all([
-    equipos.get({ teamId: m.grupo }),
-    equipos.listMemberships({ teamId: m.grupo, queries: [Query.limit(100)] }),
-  ]).catch(() => [null, { memberships: [] }]);
-  // Los datos del mensaje los escribe quien lo manda: sin esta comprobación, alguien podría mandar un mensaje
-  // diciendo que es de un grupo ajeno y llenarlo de avisos falsos. Hay que ser miembro del grupo al que se avisa.
-  if (!equipo || !memberships.some((x) => x.userId === m.autorId)) {
-    error(`mensaje rechazado: el autor no es del grupo`);
-    return res.json({ enviadas: 0, motivo: "autor ajeno al grupo" });
+  const disparo = req.headers["x-appwrite-trigger"]; // "event" o "http"
+  const evento = req.headers["x-appwrite-event"] ?? "";
+  const quien = req.headers["x-appwrite-user-id"]; // la cuenta que hizo la acción (la pone Appwrite, no el cliente)
+  const datos = req.bodyJson ?? {};
+  const fila = (tabla, id) => db.getRow({ databaseId: BD, tableId: tabla, rowId: id }).catch(() => null);
+
+  // Grupo y sus miembros; quien hace la acción tiene que ser de ese grupo (si no, no se avisa a nadie)
+  async function grupoDe(teamId) {
+    if (!teamId || !quien) return null;
+    const [equipo, { memberships }] = await Promise.all([
+      equipos.get({ teamId }),
+      equipos.listMemberships({ teamId, queries: [Query.limit(100)] }),
+    ]).catch(() => [null, { memberships: [] }]);
+    const yo = memberships.find((m) => m.userId === quien);
+    return equipo && yo ? { nombre: equipo.name, miembros: memberships, yo } : null;
   }
-  // Si Appwrite dice quién disparó el evento, tiene que ser quien firma el mensaje (no vale hacerse pasar por otro)
-  const disparador = req.headers["x-appwrite-user-id"];
-  if (disparador && disparador !== m.autorId) {
-    error(`mensaje rechazado: lo disparó otra cuenta`);
-    return res.json({ enviadas: 0, motivo: "autor falso" });
+
+  let aviso; // { destinatarios, url, tag, titulo, cuerpo(textos) }
+
+  if (disparo === "event" && evento.includes(".tables.mensajes.")) {
+    // Quien firma el mensaje tiene que ser quien lo escribió de verdad, y del grupo al que se avisa
+    if (!datos.texto || datos.autorId !== quien) return res.json({ enviadas: 0, motivo: "autor falso o sin texto" });
+    const g = await grupoDe(datos.grupo);
+    if (!g) return res.json({ enviadas: 0, motivo: "autor ajeno al grupo" });
+    aviso = {
+      destinatarios: g.miembros.map((m) => m.userId),
+      url: `/?vista=chat&grupo=${datos.grupo}`,
+      tag: `chat-${datos.grupo}`, // varios mensajes seguidos se agrupan
+      titulo: `${datos.autor} · ${g.nombre}`,
+      cuerpo: () => corto(datos.texto),
+    };
+  } else if (disparo === "event" && evento.includes(".tables.planes.")) {
+    const g = await grupoDe(datos.grupo);
+    if (!g || !datos.texto) return res.json({ enviadas: 0, motivo: "plan ajeno al grupo" });
+    aviso = {
+      destinatarios: g.miembros.map((m) => m.userId),
+      url: `/?grupo=${datos.grupo}`,
+      tag: `plan-${datos.$id}`,
+      titulo: `${g.yo.userName || datos.quien} · ${g.nombre}`,
+      cuerpo: (t) => t.plan(corto(datos.texto)),
+    };
+  } else if (disparo === "event" && evento.includes(".tables.reacciones.")) {
+    if (datos.userId !== quien) return res.json({ enviadas: 0, motivo: "reacción ajena" });
+    const g = await grupoDe(datos.grupo);
+    const comentario = g && (await fila("comentarios", datos.comentarioId));
+    if (!comentario || comentario.grupo !== datos.grupo) return res.json({ enviadas: 0, motivo: "comentario ajeno" });
+    aviso = {
+      destinatarios: [comentario.autorId], // solo a quien escribió el comentario
+      url: `/?grupo=${datos.grupo}`,
+      tag: `like-comentario-${comentario.$id}-${quien}`, // quitar y volver a dar: se sustituye, no se acumula
+      titulo: g.nombre,
+      cuerpo: (t) => t.likeComentario(g.yo.userName, corto(comentario.texto, 80)),
+    };
+  } else if (disparo === "http" && datos.accion === "like-plan") {
+    const plan = await fila("planes", String(datos.plan ?? ""));
+    const g = plan && (await grupoDe(plan.grupo));
+    if (!g || !(plan.likes ?? []).includes(quien)) return res.json({ enviadas: 0, motivo: "sin me gusta" });
+    aviso = {
+      destinatarios: g.miembros.map((m) => m.userId),
+      url: `/?grupo=${plan.grupo}`,
+      tag: `like-plan-${plan.$id}-${quien}`,
+      titulo: g.nombre,
+      cuerpo: (t) => t.likePlan(g.yo.userName, corto(plan.texto, 80)),
+    };
+  } else {
+    return res.json({ enviadas: 0, motivo: "nada que avisar" });
   }
-  log(`cabeceras recibidas: ${Object.keys(req.headers).filter((h) => h.startsWith("x-appwrite") && h !== "x-appwrite-key").join(",")}`);
-  const destinatarios = memberships.map((x) => x.userId).filter((id) => id !== m.autorId);
+
+  const destinatarios = [...new Set(aviso.destinatarios)].filter((id) => id && id !== quien);
   if (!destinatarios.length) return res.json({ enviadas: 0 });
   const { rows } = await db.listRows({
     databaseId: BD,
@@ -61,44 +132,36 @@ export default async function avisarMensaje({ req, res, log, error }) {
     queries: [Query.equal("userId", destinatarios), Query.limit(100)],
   });
 
-  // Quien tiene la app abierta ya ve el mensaje en directo: no le molestamos con un aviso
+  // Quien tiene la app abierta ya lo ve en directo: no le molestamos con un aviso
   const conectados = new Set(
-    (await presencias.list().catch(() => ({ presences: [] }))).presences.map((p) => p.userId),
+    (await new Presences(client).list().catch(() => ({ presences: [] }))).presences.map((p) => p.userId),
   );
-
-  const texto = m.texto.length > 140 ? `${m.texto.slice(0, 139)}…` : m.texto;
-  // Con varios grupos, el título dice de cuál es; al tocarlo se abre el chat de ese grupo
-  const aviso = JSON.stringify({ title: `${m.autor} · ${equipo.name}`, body: texto, url: `/?vista=chat&grupo=${m.grupo}` });
-
-  // Suscripciones con una dirección que no es de un servicio push de verdad: se borran y no se les envía nada
-  const validas = [];
-  for (const s of rows) {
-    if (endpointPermitido(s.endpoint)) validas.push(s);
-    else {
-      error(`suscripción descartada (dirección no permitida)`);
-      await db.deleteRow({ databaseId: BD, tableId: "suscripciones", rowId: s.$id }).catch(() => {});
-    }
-  }
 
   let enviadas = 0;
   await Promise.all(
-    validas
-      .filter((s) => !conectados.has(s.userId))
-      .map(async (s) => {
-        try {
-          await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, aviso, {
-            TTL: 60 * 60, // si el móvil está apagado, el aviso espera hasta 1 hora
-          });
-          enviadas++;
-        } catch (e) {
-          // 404/410: el navegador ya no tiene esa suscripción (app desinstalada, permiso quitado…)
-          if (e.statusCode === 404 || e.statusCode === 410)
-            await db.deleteRow({ databaseId: BD, tableId: "suscripciones", rowId: s.$id }).catch(() => {});
-          else error(`push ${e.statusCode ?? ""}: ${e.body ?? e.message}`);
-        }
-      }),
+    rows.map(async (s) => {
+      // Suscripciones con una dirección que no es de un servicio push de verdad: se borran y no se les envía nada
+      if (!endpointPermitido(s.endpoint)) {
+        error("suscripción descartada (dirección no permitida)");
+        return db.deleteRow({ databaseId: BD, tableId: "suscripciones", rowId: s.$id }).catch(() => {});
+      }
+      if (conectados.has(s.userId)) return;
+      const t = TEXTOS[s.idioma] ?? TEXTOS.es;
+      const carga = JSON.stringify({ title: aviso.titulo, body: aviso.cuerpo(t), url: aviso.url, tag: aviso.tag });
+      try {
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, carga, {
+          TTL: 60 * 60, // si el móvil está apagado, el aviso espera hasta 1 hora
+        });
+        enviadas++;
+      } catch (e) {
+        // 404/410: el navegador ya no tiene esa suscripción (app desinstalada, permiso quitado…)
+        if (e.statusCode === 404 || e.statusCode === 410)
+          await db.deleteRow({ databaseId: BD, tableId: "suscripciones", rowId: s.$id }).catch(() => {});
+        else error(`push ${e.statusCode ?? ""}: ${e.body ?? e.message}`);
+      }
+    }),
   );
 
-  log(`avisos enviados: ${enviadas}`);
+  log(`${disparo} ${evento || datos.accion}: avisos enviados ${enviadas}`);
   return res.json({ enviadas });
 }
