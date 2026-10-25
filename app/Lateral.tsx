@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import pkg from "../package.json";
 import { account } from "./appwrite";
 import { textoErrorClave } from "./claves";
-import { crearLlave, entrarConLlave, llavesDisponibles } from "./passkeys";
+import { crearLlave, detalleError, esCancelado, llavesDisponibles } from "./passkeys";
 import { cerrarConAnimacion } from "./dialogo";
 import FormGrupo from "./FormGrupo";
 import { borrarGrupo, codigoDeGrupo, eliminarCuenta, enlaceInvitacion, MAX_MIEMBROS, type Grupo } from "./grupos";
@@ -74,24 +74,11 @@ export default function Lateral({ t, idioma, onIdioma, usuario, onSalir, grupos,
   const [llaves, setLlaves] = useState(false); // el navegador permite llaves de acceso (Face ID / huella)
   const [avisoLlave, setAvisoLlave] = useState<{ ok: boolean; texto: string } | null>(null);
   const [ocupadoLlave, setOcupadoLlave] = useState(false);
-  const cancelado = (e: unknown) => (e as Error).name === "NotAllowedError" || (e as Error).message === "cancelado";
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- WebAuthn solo existe en el navegador, tras montar
     setLlaves(llavesDisponibles());
   }, []);
-
-  // Cambiar de cuenta: el sistema enseña las cuentas con llave en este móvil; al entrar con otra, la app se recarga
-  async function cambiarCuenta() {
-    setOcupadoLlave(true);
-    setAvisoLlave(null);
-    try {
-      await entrarConLlave(true);
-      location.reload();
-    } catch (e) {
-      if (!cancelado(e)) setAvisoLlave({ ok: false, texto: t.errorLlave });
-      setOcupadoLlave(false);
-    }
-  }
 
   async function activarLlave() {
     setOcupadoLlave(true);
@@ -101,7 +88,11 @@ export default function Lateral({ t, idioma, onIdioma, usuario, onSalir, grupos,
       setAvisoLlave({ ok: true, texto: t.llaveCreada });
     } catch (e) {
       // 401: Appwrite solo deja crear llaves poco después de entrar con la contraseña
-      if (!cancelado(e)) setAvisoLlave({ ok: false, texto: (e as { code?: number }).code === 401 ? t.llaveReentrar : t.errorLlave });
+      if (!esCancelado(e))
+        setAvisoLlave({
+          ok: false,
+          texto: (e as { code?: number }).code === 401 ? t.llaveReentrar : `${t.errorLlave} (${detalleError(e)})`,
+        });
     } finally {
       setOcupadoLlave(false);
     }
@@ -251,14 +242,10 @@ export default function Lateral({ t, idioma, onIdioma, usuario, onSalir, grupos,
             {llaves && (
               <div className="llaves">
                 <div className="botones-cuenta">
-                  <button className="pildora" onClick={cambiarCuenta} disabled={ocupadoLlave}>
-                    {t.cambiarCuenta}
-                  </button>
                   <button className="pildora" onClick={activarLlave} disabled={ocupadoLlave}>
                     {t.anadirLlave}
                   </button>
                 </div>
-                <small>{t.cambiarCuentaAyuda}</small>
                 {avisoLlave && (
                   <p className={`aviso-clave${avisoLlave.ok ? " ok" : ""}`} role="status">
                     {avisoLlave.texto}

@@ -2,19 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cerrarConAnimacion } from "./dialogo";
+import CampoCategoria from "./CampoCategoria";
 import CampoFecha from "./CampoFecha";
+import type { Categoria } from "./categorias";
 import type { Idioma, Textos } from "./i18n";
 import type { Lugar } from "./lugar";
 import SelectorLugar from "./SelectorLugar";
 
-type Plan = { id: string; texto: string; lugar?: Lugar; fecha?: string };
+type Plan = { id: string; texto: string; lugar?: Lugar; fecha?: string; categoria?: Categoria };
 
 type Props = {
   plan: Plan | null; // null = cerrado
   cercaDe?: Lugar;
   idioma: Idioma;
   t: Textos;
-  onGuardar: (id: string, texto: string, lugar: Lugar | null, fecha: string) => Promise<void>;
+  onGuardar: (id: string, texto: string, lugar: Lugar | null, fecha: string, categoria: Categoria | null) => Promise<void>;
   onCerrar: () => void;
 };
 
@@ -24,6 +26,7 @@ export default function EditarPlan({ plan, cercaDe, idioma, t, onGuardar, onCerr
   const [texto, setTexto] = useState("");
   const [lugar, setLugar] = useState<Lugar | null>(null);
   const [fecha, setFecha] = useState("");
+  const [categoria, setCategoria] = useState<Categoria | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
 
@@ -33,6 +36,7 @@ export default function EditarPlan({ plan, cercaDe, idioma, t, onGuardar, onCerr
       setTexto(plan.texto);
       setLugar(plan.lugar ?? null);
       setFecha(plan.fecha ?? "");
+      setCategoria(plan.categoria ?? null);
       setError("");
       d?.showModal();
     }
@@ -40,7 +44,7 @@ export default function EditarPlan({ plan, cercaDe, idioma, t, onGuardar, onCerr
   }, [plan]);
 
   const cerrar = () => cerrarConAnimacion(ref.current);
-  const cambiado = !!plan && (texto.trim() !== plan.texto || lugar?.lat !== plan.lugar?.lat || lugar?.lng !== plan.lugar?.lng || fecha !== (plan.fecha ?? ""));
+  const cambiado = !!plan && (texto.trim() !== plan.texto || lugar?.lat !== plan.lugar?.lat || lugar?.lng !== plan.lugar?.lng || fecha !== (plan.fecha ?? "") || categoria !== (plan.categoria ?? null));
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault();
@@ -49,7 +53,7 @@ export default function EditarPlan({ plan, cercaDe, idioma, t, onGuardar, onCerr
     setGuardando(true);
     setError("");
     try {
-      await onGuardar(plan.id, tx, lugar, fecha);
+      await onGuardar(plan.id, tx, lugar, fecha, categoria);
       cerrar();
     } catch (err) {
       setError((err as Error).message);
@@ -97,6 +101,7 @@ export default function EditarPlan({ plan, cercaDe, idioma, t, onGuardar, onCerr
               t={t}
             />
             <CampoFecha valor={fecha} onCambio={setFecha} t={t} idioma={idioma} />
+            <CampoCategoria valor={categoria} onCambio={setCategoria} t={t} />
             {error && (
               <p className="aviso" role="alert">
                 {error}

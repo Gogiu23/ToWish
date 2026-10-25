@@ -3,7 +3,7 @@
 import type { Models } from "appwrite";
 import { useEffect, useState } from "react";
 import type { Textos } from "./i18n";
-import { crearLlave, llavesDisponibles } from "./passkeys";
+import { crearLlave, detalleError, esCancelado, llavesDisponibles } from "./passkeys";
 
 // Una vez por cuenta y dispositivo: si ya dijo que sí o que no, no se vuelve a ofrecer
 const clave = (usuario: Models.User) => `towish-llave-${usuario.$id}`;
@@ -58,7 +58,7 @@ export default function AvisoLlave({
       cerrar("hecho");
     } catch (e) {
       // Cancelado en la ventana del sistema: no es un error, se puede volver a intentar
-      if ((e as Error).name !== "NotAllowedError" && (e as Error).message !== "cancelado") setError(t.errorLlave);
+      if (!esCancelado(e)) setError(`${t.errorLlave} (${detalleError(e)})`);
     } finally {
       setOcupado(false);
     }

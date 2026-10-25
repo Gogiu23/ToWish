@@ -9,10 +9,12 @@ import Chat from "./Chat";
 import Comentarios, { useComentarios, type Comentario } from "./Comentarios";
 import AvisoLlave from "./AvisoLlave";
 import AvisoNotificaciones from "./AvisoNotificaciones";
-import { entrarConLlave, llavesDisponibles } from "./passkeys";
+import { detalleError, entrarConLlave, esCancelado, llavesDisponibles } from "./passkeys";
 import Deslizable from "./Deslizable";
 import Calendario from "./Calendario";
+import CampoCategoria from "./CampoCategoria";
 import CampoFecha, { ICONO_CALENDARIO } from "./CampoFecha";
+import { CATEGORIAS, emojiDe, esCategoria, type Categoria } from "./categorias";
 import EditarPlan from "./EditarPlan";
 import { fechaCorta, hoyISO } from "./fechas";
 import FormGrupo, { textoErrorGrupo } from "./FormGrupo";
@@ -48,6 +50,7 @@ type Plan = {
   likes: string[];
   lugar?: Lugar;
   fecha?: string; // día en que se quiere hacer (AAAA-MM-DD)
+  categoria?: Categoria;
 };
 type Filtro = "todos" | "pendientes" | "hechos";
 
@@ -62,6 +65,7 @@ const aPlan = (r: Models.DefaultRow): Plan => ({
   likes: [...new Set<string>(r.likes ?? [])],
   lugar: r.lat != null && r.lng != null ? { nombre: r.lugar ?? "", lat: r.lat, lng: r.lng } : undefined,
   fecha: r.fecha || undefined,
+  categoria: esCategoria(r.categoria) ? r.categoria : undefined,
 });
 
 const ordenar = (ps: Plan[]) => [...ps].sort((a, b) => b.creado.localeCompare(a.creado));
@@ -230,12 +234,14 @@ export default function Home() {
   const [invitado, setInvitado] = useState(false); // ha llegado con un enlace de invitación
   const [planes, setPlanes] = useState<Plan[]>([]);
   const [texto, setTexto] = useState("");
-  const [filtro, setFiltro] = useState<Filtro>("todos");
+  const [filtro, setFiltro] = useState<Filtro>("pendientes"); // lo primero que se ve: lo que falta por hacer
+  const [verCategoria, setVerCategoria] = useState<Categoria | null>(null); // filtro por categoría (null = todas)
   const [antiguosPrimero, setAntiguosPrimero] = useState(false);
   const [error, setError] = useState("");
   const [idioma, setIdioma] = useState<Idioma>("es");
   const [lugar, setLugar] = useState<Lugar | null>(null);
   const [fecha, setFecha] = useState(""); // día previsto del plan nuevo ("" = sin fecha)
+  const [categoria, setCategoria] = useState<Categoria | null>(null);
   const [instalarVisible, setInstalarVisible] = useState(false); // el cartel de instalar está a la vista
   const [llaveVisible, setLlaveVisible] = useState(false); // el de activar Face ID / huella
   const [recienEntrado, setRecienEntrado] = useState(false); // acaba de entrar con contraseña: se le ofrece la llave
@@ -431,10 +437,10 @@ export default function Home() {
   async function entrarLlave() {
     setError("");
     try {
-      await entrarConLlave(false);
+      await entrarConLlave();
       setUsuario(await account.get());
     } catch (e) {
-      if ((e as Error).name !== "NotAllowedError" && (e as Error).message !== "cancelado") setError(t.errorLlave);
+      if (!esCancelado(e)) setError(`${t.errorLlave} (${detalleError(e)})`);
     }
   }
 
@@ -534,6 +540,7 @@ export default function Home() {
           grupo: grupo.id,
           ...(lugar && { lugar: lugar.nombre, lat: lugar.lat, lng: lugar.lng }),
           ...(fecha && { fecha }),
+          ...(categoria && { categoria }),
         },
         // Solo los del grupo lo ven, lo marcan, le dan like y lo borran
         permissions: [
@@ -546,6 +553,7 @@ export default function Home() {
       setTexto("");
       setLugar(null);
       setFecha("");
+      setCategoria(null);
       setClaveLugar((k) => k + 1);
     } catch (e) {
       setError((e as Error).message);
@@ -553,11 +561,11 @@ export default function Home() {
   }
 
   // Cambia el texto y/o el lugar de un plan (quitar el lugar = dejar lugar, lat y lng en null)
-  async function guardarEdicion(id: string, texto: string, lugar: Lugar | null, fecha: string) {
+  async function guardarEdicion(id: string, texto: string, lugar: Lugar | null, fecha: string, categoria: Categoria | null) {
     const r = await db.updateRow({
       ...T,
       rowId: id,
-      data: { texto, lugar: lugar?.nombre ?? null, lat: lugar?.lat ?? null, lng: lugar?.lng ?? null, fecha: fecha || null },
+      data: { texto, lugar: lugar?.nombre ?? null, lat: lugar?.lat ?? null, lng: lugar?.lng ?? null, fecha: fecha || null, categoria },
     });
     setPlanes((ps) => upsert(ps, aPlan(r)));
   }
@@ -684,11 +692,16 @@ export default function Home() {
       </main>
     );
 
-  const filtrados = planes.filter((p) =>
-    filtro === "todos" ? true : filtro === "hechos" ? p.hecho : !p.hecho,
+  const filtrados = planes.filter(
+    (p) =>
+      (filtro === "todos" ? true : filtro === "hechos" ? p.hecho : !p.hecho) &&
+      (!verCategoria || p.categoria === verCategoria),
   );
-  // planes ya viene de más nuevo a más antiguo
-  const visibles = antiguosPrimero ? [...filtrados].reverse() : filtrados;
+  // planes ya viene de más nuevo a más antiguo; en "Todos", los pendientes delante de los hechos
+  const ordenados = antiguosPrimero ? [...filtrados].reverse() : filtrados;
+  const visibles = filtro === "todos" ? [...ordenados].sort((a, b) => Number(a.hecho) - Number(b.hecho)) : ordenados;
+  // En el filtro solo salen las categorías que se usan (y la elegida, aunque ya no quede ninguna)
+  const categoriasEnUso = CATEGORIAS.filter((c) => c.id === verCategoria || planes.some((p) => p.categoria === c.id));
 
   const irA = (v: typeof vista) => {
     setVista(v);
@@ -720,6 +733,7 @@ export default function Home() {
 
           <SelectorLugar key={claveLugar} lugar={lugar} onLugar={setLugar} cercaDe={cercaDe} idioma={idioma} t={t} />
           <CampoFecha valor={fecha} onCambio={setFecha} t={t} idioma={idioma} />
+          <CampoCategoria valor={categoria} onCambio={setCategoria} t={t} />
 
           <button className="anadir" type="submit">
             {t.anadir}
@@ -727,7 +741,7 @@ export default function Home() {
         </form>
 
         <div className="filtros">
-          {(["todos", "pendientes", "hechos"] as Filtro[]).map((f) => (
+          {(["pendientes", "todos", "hechos"] as Filtro[]).map((f) => (
             <button key={f} aria-pressed={filtro === f} onClick={() => setFiltro(f)}>
               {t.filtros[f]}
             </button>
@@ -744,6 +758,25 @@ export default function Home() {
             </svg>
           </button>
         </div>
+
+        {categoriasEnUso.length > 0 && (
+          <div className="filtro-categorias" role="radiogroup" aria-label={t.categoria}>
+            <button role="radio" aria-checked={!verCategoria} onClick={() => setVerCategoria(null)}>
+              {t.todasCategorias}
+            </button>
+            {categoriasEnUso.map((c) => (
+              <button
+                key={c.id}
+                role="radio"
+                aria-checked={verCategoria === c.id}
+                onClick={() => setVerCategoria(verCategoria === c.id ? null : c.id)}
+              >
+                <span aria-hidden="true">{c.emoji}</span>
+                {t.categorias[c.id]}
+              </button>
+            ))}
+          </div>
+        )}
 
         {error && <p className="vacio">{error}</p>}
 
@@ -774,6 +807,12 @@ export default function Home() {
                     <time className="fecha" dateTime={p.creado}>
                       {new Intl.DateTimeFormat(idioma, { dateStyle: "medium" }).format(new Date(p.creado))}
                     </time>
+                    {p.categoria && (
+                      <small className="categoria-plan">
+                        <span aria-hidden="true">{emojiDe(p.categoria)}</span>
+                        {t.categorias[p.categoria]}
+                      </small>
+                    )}
                     {p.fecha && (
                       <small
                         className={`fecha-plan${!p.hecho && p.fecha < hoyISO() ? " atrasado" : ""}${p.fecha === hoyISO() ? " hoy" : ""}`}

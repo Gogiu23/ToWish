@@ -111,8 +111,7 @@ Todo se comparte **en tiempo real**: lo que apunta uno aparece al momento en el 
 
 - **Crea tu cuenta** en la propia pantalla de entrada, y entra después con **Face ID o huella**, sin contraseña.
 - **Crea un grupo** e **invita** con un código de 6 letras, un enlace o directamente por **WhatsApp**.
-- Puedes estar en **varios grupos** y cambiar de uno a otro tocando su nombre; cada uno solo ve lo suyo.
-- **Varias cuentas en el mismo móvil:** cambia de cuenta en un toque con Face ID o huella, sin cerrar sesión. Cada cuenta recibe sus propios avisos.
+- Una cuenta por persona, en **varios grupos** a la vez: cambia de uno a otro tocando su nombre; cada uno solo ve lo suyo.
 - **Tres idiomas:** español, ruso e italiano.
 - **Instalable** en el móvil y en el ordenador (PWA).
 - **Novedades** a un toque, en el botón ✦ de arriba a la derecha.
@@ -237,7 +236,7 @@ app/
   EditarPlan.tsx           Editar texto, lugar y fecha de un plan
   SelectorLugar.tsx        Buscador de sitios (sugerencias y links de Google Maps)
   SelectorGrupo.tsx        Menú para cambiar de grupo o crear / unirse a otro
-  passkeys.ts              Llaves de acceso: entrar con Face ID / huella y cambiar de cuenta
+  passkeys.ts              Llaves de acceso: entrar con Face ID / huella
   AvisoLlave.tsx           Propuesta de activar Face ID / huella tras entrar
   lugar.ts                 Búsqueda de sitios, links de Google Maps y teselas
   api/lugar/route.ts       Resuelve links de Google Maps en el servidor (con sesión)

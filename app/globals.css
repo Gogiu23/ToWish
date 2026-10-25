@@ -2965,3 +2965,68 @@ button.badge-grupo {
   font-size: 0.78rem;
   line-height: 1.4;
 }
+
+/* Categorías: fichas para elegir (en los formularios) y para filtrar, en una fila que se desliza */
+.campo-categoria,
+.filtro-categorias {
+  display: flex;
+  gap: 6px;
+  margin: 0 -2px;
+  padding: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.campo-categoria::-webkit-scrollbar,
+.filtro-categorias::-webkit-scrollbar { display: none; }
+
+.campo-categoria button,
+.filtro-categorias button {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--tarjeta);
+  color: var(--tinta);
+  font: inherit;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, scale 0.12s;
+}
+
+.campo-categoria button:active,
+.filtro-categorias button:active { scale: 0.95; }
+
+.campo-categoria button[aria-checked="true"] {
+  background: var(--azul-claro);
+  font-weight: 700;
+  box-shadow: 2px 2px 0 var(--tinta);
+}
+
+.filtro-categorias {
+  margin: -4px -2px 14px;
+}
+
+.filtro-categorias button[aria-checked="true"] {
+  background: var(--azul-claro);
+  font-weight: 700;
+}
+
+/* Categoría en la tarjeta */
+.categoria-plan {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 9px 1px 7px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: var(--tarjeta); /* blanca: el azul y el rosa ya son del autor */
+  color: var(--tinta);
+  font-size: 0.75rem;
+  font-weight: 700;
+}

@@ -93,9 +93,6 @@ export async function crearLlave() {
   await account.updatePasskeyVerification({ passkeyId: reto.passkeyId, credential: aJSON(cred) });
 }
 
-const esDeInvitado = (e: unknown) =>
-  e instanceof AppwriteException && e.code === 401 && /scope|guest/i.test(`${e.type} ${e.message}`);
-
 async function pedirToken() {
   const reto = await account.createPasskeyToken();
   const cred = (await navigator.credentials.get({
@@ -106,23 +103,22 @@ async function pedirToken() {
 }
 
 /**
- * Entra con una llave (el sistema deja elegir cuenta). `conSesion`: ya hay una cuenta dentro (cambiar de cuenta);
- * se intenta conseguir la llave antes de cerrar la sesión actual, para que si se cancela no se quede fuera.
+ * Entra con una llave: el sistema enseña las cuentas con llave en este dispositivo y se elige una. Se usa sin
+ * sesión abierta (desde la pantalla de entrada): así Appwrite no pone pegas y Face ID se pide una sola vez, justo
+ * tras el toque (los navegadores del móvil bloquean las peticiones de llave que no vienen de un toque).
  */
-export async function entrarConLlave(conSesion: boolean) {
-  let token;
-  try {
-    token = await pedirToken();
-  } catch (e) {
-    if (!conSesion || !esDeInvitado(e)) throw e;
-    // Appwrite solo deja pedir la llave sin sesión: se cierra la actual y se vuelve a pedir
-    await account.deleteSession({ sessionId: "current" }).catch(() => {});
-    conSesion = false;
-    token = await pedirToken();
-  }
-  if (conSesion) await account.deleteSession({ sessionId: "current" }).catch(() => {});
+export async function entrarConLlave() {
+  const token = await pedirToken();
   await account.createSession({ userId: token.userId, secret: token.secret });
 }
+
+/** Cancelado en la ventana del sistema: no es un error. */
+export const esCancelado = (e: unknown) =>
+  (e as Error)?.name === "NotAllowedError" || (e as Error)?.name === "AbortError" || (e as Error)?.message === "cancelado";
+
+/** Detalle del fallo para enseñarlo (ayuda a saber qué ha pasado): tipo de Appwrite o nombre del error. */
+export const detalleError = (e: unknown) =>
+  e instanceof AppwriteException ? `${e.code} ${e.type || e.message}` : `${(e as Error)?.name ?? "Error"}: ${(e as Error)?.message ?? ""}`;
 
 /** Cuántas llaves tiene la cuenta (para saber si ofrecer crear una). */
 export const cuantasLlaves = () =>
