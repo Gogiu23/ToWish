@@ -57,6 +57,8 @@ export default function Chat({ usuario, grupo, todosMisGrupos, t, idioma, visibl
   const [error, setError] = useState("");
   const [conectados, setConectados] = useState<Record<string, string>>({}); // userId → nombre
   const [respondiendo, setRespondiendo] = useState<Mensaje | null>(null);
+  const [falloPresencia, setFalloPresencia] = useState(""); // por qué no salen los conectados (si falla)
+  const escuchandoErrores = useRef(false);
   const caja = useRef<HTMLInputElement>(null);
   const borrado = useBorradoDiferido<Mensaje>({
     borrar: (m) => db.deleteRow({ ...M, rowId: m.id }),
@@ -92,6 +94,12 @@ export default function Chat({ usuario, grupo, todosMisGrupos, t, idioma, visibl
       },
     );
 
+    // Los errores del WebSocket (también los de la presencia) llegan solo por aquí; el SDK no deja quitar el callback
+    if (!escuchandoErrores.current) {
+      escuchandoErrores.current = true;
+      realtime.onError((e, codigo) => setFalloPresencia(`ws ${codigo ?? ""} ${e?.message ?? ""}`));
+    }
+
     // Presencia ligada al WebSocket: el SDK la reenvía al reconectar y desaparece al cerrar la app
     realtime.upsertPresence({
       presenceId: usuario.$id,
@@ -107,7 +115,8 @@ export default function Chat({ usuario, grupo, todosMisGrupos, t, idioma, visibl
             Object.fromEntries(r.presences.map((p) => [p.userId, (p.metadata as { nombre?: string })?.nombre ?? ""])),
           ),
         )
-        .catch(() => {});
+        .then(() => setFalloPresencia(""))
+        .catch((e) => setFalloPresencia(`${e.code ?? ""} ${e.type || e.message}`));
     leerPresencias();
     const subPresencias = realtime.subscribe(Channel.presences(), leerPresencias);
 
@@ -197,7 +206,7 @@ export default function Chat({ usuario, grupo, todosMisGrupos, t, idioma, visibl
               </span>
             ))
           ) : (
-            <span className="nadie">{t.nadieConectado}</span>
+            <span className="nadie">{falloPresencia || t.nadieConectado}</span>
           )}
         </div>
       </header>
