@@ -1058,12 +1058,12 @@ main.con-pestanas {
 
 .burbuja.mio {
   border-bottom-right-radius: 6px;
-  background: var(--azul-claro);
+  background: linear-gradient(135deg, var(--azul-claro), var(--azul));
 }
 
 .burbuja.suyo {
   border-bottom-left-radius: 6px;
-  background: var(--rosa-claro);
+  background: linear-gradient(135deg, var(--rosa-claro), var(--rosa));
 }
 
 /* Mensaje citado, arriba de la respuesta */
@@ -1092,12 +1092,6 @@ main.con-pestanas {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  /* Texto con gradiente: tonos oscuros para que se lea sobre los pasteles */
-  width: fit-content;
-  background: linear-gradient(90deg, var(--tinta), #7b2cbf);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
 }
 
 .mensajes small {
