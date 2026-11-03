@@ -336,7 +336,11 @@ export default function Home() {
       if (!vivo) return;
       setGrupos(gs);
       setGrupoId(elegido);
-    })().catch((e) => setError((e as Error).message));
+    })().catch((e) => {
+      // Sin sesión en la petición (cookies de terceros bloqueadas en el móvil): de vuelta a entrar
+      if ((e as { code?: number }).code === 401) return void cerrarPorInactividad();
+      setError((e as Error).message);
+    });
     return () => {
       vivo = false;
     };

@@ -86,9 +86,11 @@ export function nombreDispositivo() {
  */
 export async function crearLlave() {
   const reto = await account.createPasskey({ passkeyId: ID.unique(), name: nombreDispositivo() });
-  const cred = (await navigator.credentials.create({
-    publicKey: opcionesCreacion(reto.publicKey as Json),
-  })) as PublicKeyCredential | null;
+  const cred = (await navigator.credentials
+    .create({ publicKey: opcionesCreacion(reto.publicKey as Json) })
+    // InvalidStateError: este dispositivo ya tiene una llave de la cuenta (Appwrite la excluye). Es lo que se quería.
+    .catch((e) => (e?.name === "InvalidStateError" ? "ya-tiene" : Promise.reject(e)))) as PublicKeyCredential | "ya-tiene" | null;
+  if (cred === "ya-tiene") return;
   if (!cred) throw new Error("cancelado");
   await account.updatePasskeyVerification({ passkeyId: reto.passkeyId, credential: aJSON(cred) });
 }
