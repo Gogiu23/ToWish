@@ -1092,6 +1092,12 @@ main.con-pestanas {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  /* Texto con gradiente: tonos oscuros para que se lea sobre los pasteles */
+  width: fit-content;
+  background: linear-gradient(90deg, var(--tinta), #7b2cbf);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .mensajes small {
