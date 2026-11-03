@@ -1058,12 +1058,12 @@ main.con-pestanas {
 
 .burbuja.mio {
   border-bottom-right-radius: 6px;
-  background: linear-gradient(135deg, var(--azul-claro), var(--azul));
+  background: linear-gradient(135deg, var(--azul-claro), var(--lila));
 }
 
 .burbuja.suyo {
   border-bottom-left-radius: 6px;
-  background: linear-gradient(135deg, var(--rosa-claro), var(--rosa));
+  background: linear-gradient(135deg, var(--rosa-claro), var(--lila));
 }
 
 /* Mensaje citado, arriba de la respuesta */
@@ -1305,8 +1305,8 @@ main.con-pestanas {
   border-radius: 14px;
 }
 
-.lista-comentarios li.mio { background: var(--azul-claro); }
-.lista-comentarios li.suyo { background: var(--rosa-claro); }
+.lista-comentarios li.mio { background: linear-gradient(135deg, var(--azul-claro), var(--lila)); }
+.lista-comentarios li.suyo { background: linear-gradient(135deg, var(--rosa-claro), var(--lila)); }
 
 .lista-comentarios small {
   font-size: 0.72rem;
