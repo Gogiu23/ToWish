@@ -190,8 +190,11 @@ export default function Chat({ usuario, grupo, todosMisGrupos, t, idioma, visibl
       d.toDateString() === hoy ? { timeStyle: "short" } : { dateStyle: "short", timeStyle: "short" };
     return new Intl.DateTimeFormat(idioma, opciones).format(d);
   };
-  // Solo los de este grupo (tu presencia la ven todos tus grupos, la suya también)
-  const otros = Object.entries(conectados).filter(([id]) => id !== usuario.$id && grupo.miembros.some((m) => m.id === id));
+  // Solo los de este grupo (tu presencia la ven todos tus grupos, la suya también). Appwrite no da el id de los
+  // otros miembros (solo el tuyo), así que si viene vacío se compara por nombre.
+  const otros = Object.entries(conectados).filter(
+    ([id, nombre]) => id !== usuario.$id && grupo.miembros.some((m) => m.id === id || (!m.id && m.nombre === nombre)),
+  );
 
   return (
     <section className={`chat${respondiendo ? " respondiendo" : ""}`} hidden={!visible}>
